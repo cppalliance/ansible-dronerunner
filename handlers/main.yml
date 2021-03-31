@@ -1,0 +1,9 @@
+---
+- name: start runner
+  args:
+    executable: /bin/bash
+  ansible.builtin.shell:
+    cmd: |
+      docker stop runner || true
+      docker rm runner || true
+      /opt/drone/scripts/startdronerunner.sh

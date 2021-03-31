@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  role_name: dronerunner
+  author: sdarwin
+  description: Install drone.io runner on a server
+  license: BSD
+  min_ansible_version: 2.10
+  platforms:
+    - name: Ubuntu
+      versions:
+        - xenial
+        - bionic
+        - focal
+
+  galaxy_tags:
+    - ci
+
+dependencies: []

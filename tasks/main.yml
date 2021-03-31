@@ -1,0 +1,13 @@
+---
+- name: include linux client
+  include: linux.yml
+  when: ansible_system == 'Linux'
+
+- name: include mac client
+  include: macos.yml
+  when: ansible_system == 'Darwin'
+
+- name: include windows client
+  include: windows.yml
+  when: ansible_system == 'NT'
+

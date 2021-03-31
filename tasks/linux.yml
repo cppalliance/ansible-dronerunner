@@ -1,0 +1,43 @@
+---
+- name: include swap configuration
+  include: swap.yml
+
+- name: install rc.local file
+  template:
+    src: rc.local
+    dest: /etc/rc.local
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: disable hyperthreading
+  shell:
+    cmd: echo off > /sys/devices/system/cpu/smt/control
+  changed_when: false
+
+- name: Install required packages
+  apt:
+    name: "{{ dronerunner_packages }}"
+    state: present
+    update_cache: yes
+
+- name: Make sure docker is enabled
+  ansible.builtin.systemd:
+    state: started
+    enabled: yes
+    name: docker
+
+- name: Create scripts dir
+  ansible.builtin.file:
+    path: /opt/drone/scripts
+    state: directory
+    mode: '0755'
+
+- name: install startdronerunner.sh script
+  template:
+    src: startdronerunner.sh
+    dest: /opt/drone/scripts/startdronerunner.sh
+    owner: root
+    group: root
+    mode: '0755'
+  notify: start runner

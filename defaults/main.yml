@@ -1,0 +1,22 @@
+---
+
+# Customize these variables for your installation:
+dronerunner_drone_rpc_proto: "https"
+dronerunner_drone_rpc_host: "drone.example.com"
+dronerunner_drone_rpc_secret: "mysecret"
+dronerunner_drone_runner_capacity: 6
+dronerunner_drone_runner_name: "runner.example.com"
+dronerunner_drone_logs_debug: "false"
+dronerunner_drone_logs_trace: "false"
+
+swap_configure: true # manage the swap or not
+swap_enable: true
+swap_file_path: /swapfile
+swap_file_size_mb: 10000
+swappiness: 1
+
+dronerunner_packages: 
+  - docker.io
+  - nload
+  - htop
+  - mlocate
