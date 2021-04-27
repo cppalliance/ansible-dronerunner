@@ -1,0 +1,7 @@
+---
+default_dronerunner_boost_gems:
+  - coveralls-lcov
+  - asciidoctor
+  - asciidoctor-pdf
+  - coderay
+default_dronerunner_drone_runner_capacity: 4

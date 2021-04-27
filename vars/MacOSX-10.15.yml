@@ -1,0 +1,31 @@
+---
+default_dronerunner_boost_packages:
+  - wget
+  - cmake
+  - lcov
+  - doxygen
+  - ccache
+  - pkg-config
+  - bash
+
+# valgrind "requires linux", and fails.
+
+default_dronerunner_xcode_versions:
+  - 10.1
+  - 10.2
+  - 10.3
+  - 11.1
+  - 11.2.1
+  - 11.3
+  - 11.4
+  - 11.5
+  - 11.6
+  - 11.7
+  - 12.0
+  - 12.1
+  - 12.2
+  - 12.3
+
+default_dronerunner_xcode_version_license: "12.3"
+
+default_dronerunner_labels: "os:catalina,test:true"

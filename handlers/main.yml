@@ -7,3 +7,15 @@
       docker stop runner || true
       docker rm runner || true
       /opt/drone/scripts/startdronerunner.sh
+
+- name: start runner windows
+  ansible.windows.win_shell: |
+    docker stop runner
+    docker rm runner
+    {{ dronerunner_scripts_dir_win }}\\startdronerunner.bat
+
+- name: reboot windows
+  win_reboot:
+
+- name: reboot mac
+  reboot:

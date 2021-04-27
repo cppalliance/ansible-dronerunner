@@ -1,0 +1,86 @@
+---
+
+# Not currently being run. Ansible isn't handling interactive 2FA well, and
+# that is required for the XCode installs.
+# Using scripts/bootstrap_mac.sh
+
+# from http://rapidprogrammer.com/how-to-install-homebrew-with-ansible
+- name: Check if Homebrew is already installed
+  stat:
+    path: /usr/local/bin/brew
+  register: b
+
+- name: Install Homebrew
+  script: install-homebrew.sh
+  when: not b.stat.exists
+  become: false
+
+# and what about this, would it install homebrew?
+- name: Update brew
+  community.general.homebrew:
+    name: htop
+    state: present
+    update_homebrew: true
+  become: false
+
+- name: Install brew packages
+  community.general.homebrew:
+    name: "{{ dronerunner_boost_packages }}"
+    state: present
+  become: false
+
+- name: Add ruby PATH for mac 10.13
+  lineinfile:
+    name: ~/.profile
+    line: "{{ dronerunner_ruby_path }}"
+    state: present
+  when:
+    - ansible_distribution_version.split('.')[0] == 10
+    - ansible_distribution_version.split('.')[1] == 13
+  become: false
+
+- name: Install xcode-install
+  ansible.builtin.shell: xcrun gem install xcode-install --no-document
+
+- name: Install xcode versions
+  ansible.builtin.shell: /usr/local/bin/xcversion install {{ item }} --no-switch
+  args:
+    creates: /Applications/Xcode-12.3.app
+  with_items: "{{ dronerunner_xcode_versions }}"
+  become: false
+  environment:
+    FASTLANE_USER: "{{ dronerunner_fastlane_user }}"
+    FASTLANE_PASSWORD: "{{ dronerunner_fastlane_password }}"
+
+# These should not be links. They should be actual versions.
+#    cd /Applications
+#    ln -s Xcode-10.3.app Xcode-10.app
+#    ln -s Xcode-11.2.1.app Xcode-11.2.app
+#    ln -s Xcode-11.2.app Xcode-11.app
+#    ln -s Xcode-12.3.app Xcode-12.app
+#
+#
+#
+#     sudo mv /Library/Developer/CommandLineTools /Library/Developer/CommandLineTools.bck
+#     sudo xcode-select -switch /Applications/Xcode-11.7.app/Contents/Developer
+#     sudo xcodebuild -license accept
+#     sudo xcode-select -switch /Applications/Xcode-12.3.app/Contents/Developer
+#     sudo xcodebuild -license accept
+#
+- name: Check presence of /Library/Developer/CommandLineTools
+  stat: path=/Library/Developer/CommandLineTools
+  register: commandlinetools_stat
+
+- name: Move commandlinetools
+  command: /Library/Developer/CommandLineTools
+  when: commandlinetools_stat.stat.exists
+
+- name: Accept Xcode license
+  ansible.builtin.shell: |
+    xcode-select -switch /Applications/Xcode-{{ dronerunner_xcode_version_license }}.app/Contents/Developer
+    xcodebuild -license accept
+
+- name: Install additional gems
+  ansible.builtin.shell: |
+    xcrun gem install {{ item }} --no-document
+  with_items: "{{ dronerunner_boost_gems }}"

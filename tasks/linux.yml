@@ -19,12 +19,12 @@
   apt:
     name: "{{ dronerunner_packages }}"
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Make sure docker is enabled
   ansible.builtin.systemd:
     state: started
-    enabled: yes
+    enabled: true
     name: docker
 
 - name: Create scripts dir

@@ -1,0 +1,139 @@
+---
+# from http://rapidprogrammer.com/how-to-install-homebrew-with-ansible
+# still untested
+- name: Check if Homebrew is already installed
+  stat:
+    path: /usr/local/bin/brew
+  register: b
+
+- name: Install Homebrew
+  script: install-homebrew.sh
+  when: not b.stat.exists
+  become: false
+
+- name: Set hostname
+  ansible.builtin.shell: |
+    scutil --set HostName {{ inventory_hostname_short }}
+  changed_when: false
+
+# ansible.builtin.user does not have fullName? use shell.
+- name: Create drone user
+  ansible.builtin.shell: |
+    set -e
+    sysadminctl -addUser {{ dronerunner_user }} -fullName {{ dronerunner_user_fullname }} -shell /bin/bash -password {{ dronerunner_password }} -home /Users/{{ dronerunner_user }}
+    mkdir -p /Users/{{ dronerunner_user }}
+    chown {{ dronerunner_user }}:staff /Users/{{ dronerunner_user }}
+  args:
+    creates: "/Users/{{ dronerunner_user }}"
+
+# To set up autologin
+- name: Tap Homebrew repository xfreebird/utils
+  become: false
+  community.general.homebrew_tap:
+    name: xfreebird/utils
+
+- name: Check for /etc/kcpassword
+  stat: path=/etc/kcpassword
+  register: kc
+
+- name: Check for CommandLineTools
+  stat: path=/Library/Developer/CommandLineTools
+  register: cli_tools
+  when:
+    - not kc.stat.exists
+    # - cli_tools.stat.isdir is defined and cli_tools.stat.isdir
+
+- name: Move CommandLineTools from .bck
+  command: mv /Library/Developer/CommandLineTools.bck /Library/Developer/CommandLineTools
+  when:
+    - not kc.stat.exists
+    - not cli_tools.stat.exists
+
+- name: Install kcpassword
+  community.general.homebrew:
+    name: kcpassword
+    state: present
+  become: false
+
+- name: Print ansible_env
+  ansible.builtin.debug:
+    var: ansible_env
+    verbosity: 2
+
+- name: Enable auto login
+  become: false
+  ansible.builtin.shell: |
+    sleep 1
+    /usr/local/bin/enable_autologin {{ dronerunner_user }} {{ dronerunner_password }}
+  args:
+    creates: /etc/kcpassword
+  notify: reboot mac
+  when:
+    - not kc.stat.exists
+  environment:
+    PATH: /usr/local/bin:{{ ansible_env.PATH }}
+
+# Done with kcpassword steps
+- name: Move CommandLineTools to .bck
+  command: mv /Library/Developer/CommandLineTools /Library/Developer/CommandLineTools.bck
+  when:
+    - not kc.stat.exists
+
+- name: Install updates
+  ansible.builtin.shell: |
+    set -e
+    mkdir -p /Users/{{ dronerunner_user }}/.ansible
+    touch /Users/{{ dronerunner_user }}/.ansible/installed_initial_mac_software_updates
+    # softwareupdate -i -a --restart
+    softwareupdate -i -a
+  args:
+    creates: /Users/drone/.ansible/installed_initial_mac_software_updates
+  notify: reboot mac
+
+- name: Check for dronerunner
+  stat: path=/usr/local/bin/drone-runner-exec
+  register: drone_exec
+
+# Requires gnu tar
+# - name: Download and unarchive dronerunner
+#   ansible.builtin.unarchive:
+#     src: https://github.com/drone-runners/drone-runner-exec/releases/latest/download/drone_runner_exec_darwin_amd64.tar.gz
+#     dest: /usr/local/bin
+#     remote_src: true
+
+- name: Download dronerunner
+  get_url:
+    url: https://github.com/drone-runners/drone-runner-exec/releases/latest/download/drone_runner_exec_darwin_amd64.tar.gz
+    dest: /tmp
+  when:
+    - not drone_exec.stat.exists
+
+- name: extract archive
+  ansible.builtin.shell: |
+    tar -xvf /tmp/drone_runner_exec_darwin_amd64.tar.gz
+    mv drone-runner-exec /usr/local/bin/drone-runner-exec
+  when:
+    - not drone_exec.stat.exists
+
+- name: Create directory for drone
+  ansible.builtin.file:
+    path: "/Users/{{ dronerunner_user }}/.drone-runner-exec"
+    owner: "{{ dronerunner_user }}"
+    group: staff
+    state: directory
+
+- name: install dronerunner config
+  template:
+    src: config_mac_agent
+    dest: "/Users/{{ dronerunner_user }}/.drone-runner-exec/config"
+    owner: "{{ dronerunner_user }}"
+    group: staff
+    mode: 0644
+    force: false
+
+- name: Start drone runner
+  ansible.builtin.shell: |
+    su -u {{ dronerunner_user }} -c "bash -c '/usr/local/bin/drone-runner-exec service install'"
+    su -u {{ dronerunner_user }} -c "bash -c '/usr/local/bin/drone-runner-exec service start'"
+  args:
+    creates: /Users/{{ dronerunner_user }}/Library/LaunchAgents/drone-runner-exec.plist

@@ -6,18 +6,18 @@
 
     - name: Check if swap file exists
       stat:
-        path: "{{swap_file_path}}"
+        path: "{{ swap_file_path }}"
       register: swap_file_check
       changed_when: false
 
     - name: Check if swap is on
-      shell: swapon --show | grep {{swap_file_path}}
+      shell: swapon --show | grep {{ swap_file_path }}
       register: swap_enabled
       changed_when: false
       failed_when: false
 
     - name: Disable swap
-      command: swapoff {{swap_file_path}}
+      command: swapoff {{ swap_file_path }}
       register: swap_disabled
       when: >
         swap_file_check.stat.exists
@@ -27,7 +27,7 @@
 
     - name: Delete the swap file
       file:
-        path: "{{swap_file_path}}"
+        path: "{{ swap_file_path }}"
         state: absent
       when: not swap_enable
 
@@ -36,31 +36,31 @@
       block:
 
         - name: Create or change the size of swap file
-          command: dd if=/dev/zero of={{swap_file_path}} count={{swap_file_size_mb}} bs=1MiB
+          command: dd if=/dev/zero of={{ swap_file_path }} count={{swap_file_size_mb}} bs=1MiB
           register: swap_file_created
           when: >
             not swap_file_check.stat.exists
             or swap_file_check.stat.size != (swap_file_size_mb * 1024 * 1024)
 
         - name: Change swap file permissions
-          file: path="{{swap_file_path}}"
+          file: path="{{ swap_file_path }}"
             owner=root
             group=root
             mode=0600
 
         - name: Check if swap is formatted
-          shell: file {{swap_file_path}} | grep 'swap file'
+          shell: file {{ swap_file_path }} | grep 'swap file'
           register: swap_file_is_formatted
           changed_when: false
           failed_when: false
 
         - name: Format swap file if it's not formatted
-          command: mkswap {{swap_file_path}}
+          command: mkswap {{ swap_file_path }}
           when: swap_file_is_formatted.rc > 0 or swap_file_created.changed
 
         - name: Add swap entry to fstab
           mount: name=none
-            src={{swap_file_path}}
+            src={{ swap_file_path }}
             fstype=swap
             opts=sw
             passno=0
