@@ -137,3 +137,25 @@
     su -u {{ dronerunner_user }} -c "bash -c '/usr/local/bin/drone-runner-exec service start'"
   args:
     creates: /Users/{{ dronerunner_user }}/Library/LaunchAgents/drone-runner-exec.plist
+
+# Mac OSX has a memory leak in ARD. Reboot the servers periodically:
+
+- name: cron - determine number of server
+  set_fact:
+    drone_number_of_server: "{{ inventory_hostname_short | regex_search('(\\d+)$') }}"
+
+- name: cron - determine end day
+  set_fact:
+    drone_cron_end_day: "{{ 7 * (drone_number_of_server|int % 4 + 1) }}"
+
+- name: cron - determine start day
+  set_fact:
+    drone_cron_start_day: "{{ drone_cron_end_day|int - 6 }}"
+
+- name: Create cron job to reboot server once a month
+  ansible.builtin.cron:
+    name: "reboot job"
+    minute: "0"
+    hour: "2"
+    day: "{{ drone_cron_start_day }}-{{ drone_cron_end_day }}"
+    job: "[ `date +\\%a` = 'Sun' ] && reboot"
