@@ -1,0 +1,21 @@
+---
+
+# Some of this (hyperthreading, swap size) is currently targetted at a specific server environment
+# and could be generalized later.
+
+droneunner_packages_prereqs1:
+  - yum-utils
+
+dronerunner_packages:
+  - mlocate
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+
+swap_configure: true   # manage the swap or not
+swap_enable: true
+swap_file_path: /swapfile
+swap_file_size_mb: 4000
+swappiness: 1
+
+dronerunner_hyperthreading_disable: false

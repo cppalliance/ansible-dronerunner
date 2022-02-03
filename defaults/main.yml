@@ -6,9 +6,11 @@ dronerunner_drone_rpc_secret: "mysecret"
 dronerunner_drone_runner_name: "runner.example.com"
 dronerunner_drone_logs_debug: "false"
 dronerunner_drone_logs_trace: "false"
+dronerunner_docker_image: "drone/drone-runner-docker:1"
+dronerunner_drone_agent_arch: "amd64"
 
 # Set per OS in vars directory
-# dronerunner_drone_runner_capacity: 6
+dronerunner_drone_runner_capacity: 6
 
 # for macs:
 dronerunner_user: drone
@@ -29,3 +31,6 @@ dronerunner_packages:
   - nload
   - htop
   - mlocate
+
+droneunner_packages_prereq1: []
+dronerunner_hyperthreading_disable: true

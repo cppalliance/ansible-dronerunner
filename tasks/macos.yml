@@ -158,4 +158,4 @@
     minute: "0"
     hour: "2"
     day: "{{ drone_cron_start_day }}-{{ drone_cron_end_day }}"
-    job: "[ `date +\\%a` = 'Sun' ] && reboot"
+    job: "[ `date +\\%a` = 'Sun' ] && /sbin/reboot"
