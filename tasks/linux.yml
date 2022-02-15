@@ -28,7 +28,7 @@
 
 - name: Install required packages - prereqs
   package:
-    name: "{{ droneunner_packages_prereqs1 }}"
+    name: "{{ dronerunner_packages_prereqs1 }}"
     state: present
 
 # Could used variables more in the future if necessary
