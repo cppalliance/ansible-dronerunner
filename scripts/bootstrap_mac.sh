@@ -1,12 +1,22 @@
 #!/bin/bash
 
 # Notes:
-# First sets up ssh, which is needed by ansible. Then, installs xcode and other packages for drone.
+# In development. Each time the script is run it's being rechecked and debugged.
+#
+# Purpose:
+# - Sets up ssh and sudo. Although, that might already have been done.
+# - Installs multiple versions of Xcode.
+# - Installs other packages needed by drone jobs.
 #
 # Set these variable before proceeding:
 : '
 export XCODE_INSTALL_USER=
 export XCODE_INSTALL_PASSWORD=
+or
+export FASTLANE_USER=
+export FASTLANE_PASSWORD=
+
+Log into VNC. Set at least 16b resolution. Have a desktop session running.
 '
 
 # Common Ansible section:
@@ -16,6 +26,14 @@ user=administrator
 group=staff
 sshdir=/Users/administrator/.ssh
 pubkey1="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCH0oawPzIylSjdu/fpyDD2i2stkqe52bFmLT8+MeiTAp5WI8BwlbeeiiZkneEHhLW7bGMKZ50rQONjiudWCFibb4zM2pUQTFP91BuzUG7MjFf179UlvRMUiNSYkKSSB4q0QZ8+2Vjj5lXzYxM5FjZ9FdA1ioI5l8TK8rLlf/F1TKKDfjA/YMk7769BVYndDilSidaDEvRVxQM8Z5RBUnSnDFQwEaVOuVaHIki0ZPVecwyE96e2HaFDRjNlMUZbSgHrdwkjbIugaUfiWFANBA5eIOka19CSLV5aY1tNeawoUvIBsRXjUleFJE+EIL0iGcuTcLXvAqh5UwFdMkkwUfhH drone-runner"
+
+if [ -z "$FASTLANE_USER" ] || [ -z "FASTLANE_PASSWORD" ]; then
+  echo "Set both FASTLANE_USER and FASTLANE_PASSWORD:
+export FASTLANE_USER=
+export FASTLANE_PASSWORD=
+"
+exit 1
+fi
 
 if [ ! -f /etc/sudoers.d/$user ]; then
     sudo echo "$user ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/$user
@@ -47,13 +65,16 @@ brew install ccache || true
 brew install pkg-config
 
 if [[ "$(sw_vers -productVersion)" =~ "10.15" ]] ; then
-    xcodeversions="11.3 10 10.1 10.2 10.3 11 11.1 11.2 11.2.1 11.4 11.5 11.6 11.7 12 12.1 12.2 12.3 12.4"
+    xcodeversions="10 10.1 10.2 10.3 11 11.1 11.2 11.2.1 11.3 11.4 11.5 11.6 11.7 12 12.1 12.2 12.3 12.4"
     sudo xcrun gem install xcode-install --no-document
-    if [ ! -d /Users/administrator/.fastlane/spaceship ]; then
-        echo "Configuring auth"
-        fastlane spaceauth -u $user
-        read -p "Do you wish to continue?" yn
-    fi
+    # 2022-03-07 latest experiment, will this happen automatically if needed?
+    # That is, will it prompt you for a login and 2FA.
+    # if [ ! -d /Users/administrator/.fastlane/spaceship ]; then
+    #     echo "Configuring auth"
+    #     read -p "Apple user name:" appleuser
+    #     fastlane spaceauth -u $appleuser
+    #     read -p "Do you wish to continue?" yn
+    # fi
     for xcodeversion in $xcodeversions; do
         if [ ! -d /Applications/Xcode-$xcodeversion.app ]; then
             xcversion install $xcodeversion --no-switch
@@ -92,11 +113,15 @@ if [[ "$(sw_vers -productVersion)" =~ "10.13" ]] ; then
         export PATH=/usr/local/lib/ruby/gems/2.7.0/bin:/usr/local/opt/ruby@2.7/bin:$PATH
     fi
     sudo xcrun gem install xcode-install --no-document
-    if [ ! -d /Users/administrator/.fastlane/spaceship ]; then
-        echo "Configuring auth"
-        fastlane spaceauth -u $user
-        read -p "Do you wish to continue?" yn
-    fi
+    # 2022-03-07 latest experiment, will this happen automatically if needed?
+    # That is, will it prompt you for a login and 2FA.
+    # if [ ! -d /Users/administrator/.fastlane/spaceship ]; then
+    #     # 2022-03, still experimenting in this section.
+    #     echo "Configuring auth"
+    #     read -p "Apple user name:" appleuser
+    #     fastlane spaceauth -u $appleuser
+    #     read -p "Do you wish to continue?" yn
+    # fi
     for xcodeversion in $xcodeversions; do
         if [ ! -d /Applications/Xcode-$xcodeversion.app ]; then
             xcversion install $xcodeversion --no-switch
