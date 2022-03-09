@@ -9,8 +9,8 @@ dronerunner_drone_logs_trace: "false"
 dronerunner_docker_image: "drone/drone-runner-docker:1"
 dronerunner_drone_agent_arch: "amd64"
 
-# Set per OS in vars directory
-dronerunner_drone_runner_capacity: 6
+# Set per OS in vars directory instead
+# dronerunner_drone_runner_capacity:
 
 # for macs:
 dronerunner_user: drone

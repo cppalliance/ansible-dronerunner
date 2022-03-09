@@ -1,5 +1,4 @@
 ---
-
 # Some of this is currently targetted at a specific server environment
 # and could be generalized later.
 
@@ -17,3 +16,5 @@ swap_enable: true
 swap_file_path: /swapfile
 swap_file_size_mb: 4000
 swappiness: 1
+
+dronerunner_drone_runner_capacity: 6

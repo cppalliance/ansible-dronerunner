@@ -133,8 +133,8 @@
 
 - name: Start drone runner
   ansible.builtin.shell: |
-    su -u {{ dronerunner_user }} -c "bash -c '/usr/local/bin/drone-runner-exec service install'"
-    su -u {{ dronerunner_user }} -c "bash -c '/usr/local/bin/drone-runner-exec service start'"
+    su - {{ dronerunner_user }} -c "bash -c '/usr/local/bin/drone-runner-exec service install'"
+    su - {{ dronerunner_user }} -c "bash -c '/usr/local/bin/drone-runner-exec service start'"
   args:
     creates: /Users/{{ dronerunner_user }}/Library/LaunchAgents/drone-runner-exec.plist
 
