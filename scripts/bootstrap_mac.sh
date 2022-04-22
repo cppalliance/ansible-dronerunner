@@ -63,6 +63,10 @@ brew install valgrind || true
 brew install doxygen
 brew install ccache || true
 brew install pkg-config
+brew install openssl
+
+opensslpackage=$(brew list | grep openssl | tail -n 1)
+ln -s /usr/local/opt/$opensslpackage /usr/local/opt/openssl
 
 if [[ "$(sw_vers -productVersion)" =~ "10.15" ]] ; then
     xcodeversions="10 10.1 10.2 10.3 11 11.1 11.2 11.2.1 11.3 11.4 11.5 11.6 11.7 12 12.1 12.2 12.3 12.4"

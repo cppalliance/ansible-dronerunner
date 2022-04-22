@@ -152,6 +152,11 @@
   set_fact:
     drone_cron_start_day: "{{ drone_cron_end_day|int - 6 }}"
 
+# Modify this to reboot twice per month
+#Ansible: reboot job
+# 0 2 1-7 * * [ `date +\%a` = 'Sun' ] && /sbin/reboot
+# 0 2 15-21 * * [ `date +\%a` = 'Sun' ] && /sbin/reboot
+
 - name: Create cron job to reboot server once a month
   ansible.builtin.cron:
     name: "reboot job"
