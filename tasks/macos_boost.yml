@@ -39,10 +39,10 @@
     - ansible_distribution_version.split('.')[1] == 13
   become: false
 
-- name: Install xcode-install
+- name: Install xcode-install  # noqa no-changed-when command-instead-of-shell
   ansible.builtin.shell: xcrun gem install xcode-install --no-document
 
-- name: Install xcode versions
+- name: Install xcode versions  # noqa command-instead-of-shell
   ansible.builtin.shell: /usr/local/bin/xcversion install {{ item }} --no-switch
   args:
     creates: /Applications/Xcode-12.3.app
@@ -75,12 +75,12 @@
   command: /Library/Developer/CommandLineTools
   when: commandlinetools_stat.stat.exists
 
-- name: Accept Xcode license
+- name: Accept Xcode license  # noqa no-changed-when
   ansible.builtin.shell: |
     xcode-select -switch /Applications/Xcode-{{ dronerunner_xcode_version_license }}.app/Contents/Developer
     xcodebuild -license accept
 
-- name: Install additional gems
+- name: Install additional gems  # noqa no-changed-when
   ansible.builtin.shell: |
     xcrun gem install {{ item }} --no-document
   with_items: "{{ dronerunner_boost_gems }}"

@@ -108,7 +108,7 @@
   when:
     - not drone_exec.stat.exists
 
-- name: extract archive
+- name: extract archive  # noqa command-instead-of-module
   ansible.builtin.shell: |
     tar -xvf /tmp/drone_runner_exec_darwin_amd64.tar.gz
     mv drone-runner-exec /usr/local/bin/drone-runner-exec
@@ -120,6 +120,7 @@
     path: "/Users/{{ dronerunner_user }}/.drone-runner-exec"
     owner: "{{ dronerunner_user }}"
     group: staff
+    mode: '0755'
     state: directory
 
 - name: install dronerunner config
@@ -131,36 +132,82 @@
     mode: 0644
     force: false
 
+# This may require a reboot or logging into a desktop session as drone. Therefore, setting failed_when: false.
 - name: Start drone runner
   ansible.builtin.shell: |
     su - {{ dronerunner_user }} -c "bash -c '/usr/local/bin/drone-runner-exec service install'"
+    sleep 1
     su - {{ dronerunner_user }} -c "bash -c '/usr/local/bin/drone-runner-exec service start'"
   args:
     creates: /Users/{{ dronerunner_user }}/Library/LaunchAgents/drone-runner-exec.plist
+  failed_when: false
 
 # Mac OSX has a memory leak in ARD. Reboot the servers periodically:
+
+# Once per month strategy. Deprecated.
+#
+# - name: cron - determine number of server
+#   set_fact:
+#     drone_number_of_server: "{{ inventory_hostname_short | regex_search('(\\d+)$') }}"
+#
+# - name: cron - determine end day
+#   set_fact:
+#     drone_cron_end_day: "{{ 7 * (drone_number_of_server|int % 4 + 1) }}"
+#
+# - name: cron - determine start day
+#   set_fact:
+#     drone_cron_start_day: "{{ drone_cron_end_day|int - 6 }}"
+#
+# - name: Create cron job to reboot server once a month
+#   ansible.builtin.cron:
+#     name: "reboot job"
+#     minute: "0"
+#     hour: "2"
+#     day: "{{ drone_cron_start_day }}-{{ drone_cron_end_day }}"
+#     job: "[ `date +\\%a` = 'Sun' ] && /sbin/reboot"
+
+# Twice per month strategy:
 
 - name: cron - determine number of server
   set_fact:
     drone_number_of_server: "{{ inventory_hostname_short | regex_search('(\\d+)$') }}"
 
-- name: cron - determine end day
-  set_fact:
-    drone_cron_end_day: "{{ 7 * (drone_number_of_server|int % 4 + 1) }}"
-
-- name: cron - determine start day
-  set_fact:
-    drone_cron_start_day: "{{ drone_cron_end_day|int - 6 }}"
-
-# Modify this to reboot twice per month
-#Ansible: reboot job
-# 0 2 1-7 * * [ `date +\%a` = 'Sun' ] && /sbin/reboot
-# 0 2 15-21 * * [ `date +\%a` = 'Sun' ] && /sbin/reboot
-
-- name: Create cron job to reboot server once a month
+- name: cron job to reboot server during first week
   ansible.builtin.cron:
-    name: "reboot job"
+    name: "reboot week 1"
     minute: "0"
     hour: "2"
-    day: "{{ drone_cron_start_day }}-{{ drone_cron_end_day }}"
+    day: "1-7"
     job: "[ `date +\\%a` = 'Sun' ] && /sbin/reboot"
+  when:
+    - drone_number_of_server|int % 2 == 1
+
+- name: cron job to reboot server during second week
+  ansible.builtin.cron:
+    name: "reboot week 2"
+    minute: "0"
+    hour: "2"
+    day: "8-14"
+    job: "[ `date +\\%a` = 'Sun' ] && /sbin/reboot"
+  when:
+    - drone_number_of_server|int % 2 == 0
+
+- name: cron job to reboot server during third week
+  ansible.builtin.cron:
+    name: "reboot week 3"
+    minute: "0"
+    hour: "2"
+    day: "15-21"
+    job: "[ `date +\\%a` = 'Sun' ] && /sbin/reboot"
+  when:
+    - drone_number_of_server|int % 2 == 1
+
+- name: cron job to reboot server during fourth week
+  ansible.builtin.cron:
+    name: "reboot week 4"
+    minute: "0"
+    hour: "2"
+    day: "22-28"
+    job: "[ `date +\\%a` = 'Sun' ] && /sbin/reboot"
+  when:
+    - drone_number_of_server|int % 2 == 0

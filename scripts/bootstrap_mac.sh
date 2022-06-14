@@ -1,12 +1,16 @@
 #!/bin/bash
 
-# Notes:
-# In development. Each time the script is run it's being rechecked and debugged.
-#
 # Purpose:
 # - Sets up ssh and sudo. Although, that might already have been done.
 # - Installs multiple versions of Xcode.
 # - Installs other packages needed by drone jobs.
+#
+# Instructions:
+#
+# Log into VNC. Set at least 16b resolution. Have a desktop session running.
+#
+# Enable ssh to have more permissions:
+# System Preferences -> Sharing , Remote Login, check the box Allow full disk access for remote users
 #
 # Set these variable before proceeding:
 : '
@@ -16,7 +20,6 @@ or
 export FASTLANE_USER=
 export FASTLANE_PASSWORD=
 
-Log into VNC. Set at least 16b resolution. Have a desktop session running.
 '
 
 # Common Ansible section:
