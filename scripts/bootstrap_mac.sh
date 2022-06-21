@@ -71,17 +71,33 @@ brew install openssl
 opensslpackage=$(brew list | grep openssl | tail -n 1)
 ln -s /usr/local/opt/$opensslpackage /usr/local/opt/openssl || true
 
+expect_commands='
+set timeout -1
+spawn fastlane spaceauth
+expect "Please enter the 6 digit code:"
+send -- "sms\n"
+expect "Please select a trusted phone number"
+send -- "1\n"
+expect "Please enter the 6 digit code"
+expect_user -re "(.*)\n"
+send "$expect_out(1,string)\r"
+expect "Should fastlane copy the cookie into your clipboard"
+send -- "no\n"
+expect eof
+'
+
 if [[ "$(sw_vers -productVersion)" =~ "12.4" ]] ; then
     xcodeversions="12.5 12.5.1 13.0 13.1 13.2 13.2.1 13.3 13.3.1 13.4 13.4.1"
     sudo xcrun gem install xcode-install --no-document
-    # 2022-03-07 latest experiment, will this happen automatically if needed?
-    # That is, will it prompt you for a login and 2FA.
-    # if [ ! -d /Users/administrator/.fastlane/spaceship ]; then
-    #     echo "Configuring auth"
-    #     read -p "Apple user name:" appleuser
-    #     fastlane spaceauth -u $appleuser
-    #     read -p "Do you wish to continue?" yn
-    # fi
+
+    # Trigger authentication with Apple.
+    # Another solution is to skip this and attempt to install Xcode. It will prompt for auth later.
+    if [ ! -d ~/.fastlane ]; then
+    echo "\n\n Now running 'fastlane spaceauth' to authenticate with Apple. Check your sms messages. \n\n"
+expect -c "${expect_commands//
+/;}"
+    fi
+
     for xcodeversion in $xcodeversions; do
         if [ ! -d /Applications/Xcode-$xcodeversion.app ]; then
             xcversion install $xcodeversion --no-switch
