@@ -87,6 +87,10 @@ expect eof
 '
 
 if [[ "$(sw_vers -productVersion)" =~ "12.4" ]] ; then
+
+    brew install python
+    ln -s /usr/local/bin/python3 /usr/local/bin/python
+
     xcodeversions="12.5 12.5.1 13.0 13.1 13.2 13.2.1 13.3 13.3.1 13.4 13.4.1"
     sudo xcrun gem install xcode-install --no-document
 
