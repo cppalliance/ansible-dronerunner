@@ -49,6 +49,13 @@
     - not kc.stat.exists
     - not cli_tools.stat.exists
 
+- name: change ownership of a directory
+  ansible.builtin.file:
+    path: /usr/local/var/log
+    state: directory
+    owner: administrator
+    group: admin
+
 - name: Install kcpassword
   community.general.homebrew:
     name: kcpassword
