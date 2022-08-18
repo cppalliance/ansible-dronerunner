@@ -4,4 +4,4 @@ default_dronerunner_boost_gems:
   - asciidoctor
   - asciidoctor-pdf
   - coderay
-default_dronerunner_drone_runner_capacity: 4
+default_dronerunner_drone_runner_capacity: 3
