@@ -1,0 +1,51 @@
+---
+
+# From Aug 2021. Installed docker on base server ami.
+# Now Aug 2022. Starting from "with Containers" ami and so fewer steps are required.
+# Most of this is not needed.
+
+- name: Install Nuget Package Provider
+  win_shell: Install-PackageProvider -Name "NuGet" -MinimumVersion "2.8.5.201" -Force
+  changed_when: false
+
+- name: Enable Windows Container Feature
+  win_feature:
+    name: Containers
+    state: present
+  register: dockerwindowsfeature
+
+- name: Reboot server if Windows Container Feature requires it
+  win_reboot:
+  when: dockerwindowsfeature.reboot_required
+
+# - name: Install Docker Msft Module
+#   win_shell: Install-Module -Name "DockerMsftProvider" -Repository "PSGallery" -Force
+#   changed_when: false
+
+- name: Add a PowerShell module from a specific repository
+  community.windows.win_psmodule:
+    name: DockerMsftProvider
+    repository: PSGallery
+    state: present
+
+- name: Install Docker package
+  win_shell: Install-Package –ProviderName "DockerMsftProvider" -Name "Docker" -Force
+  args:
+    creates: "C:\\Program Files\\Docker\\metadata.json"
+  # register: dockerinstall
+  notify: reboot windows
+
+# - name: Reboot server if Docker package requires it
+#   win_reboot:
+#   when: dockerinstall.changed
+
+- name: Create script directory
+  ansible.windows.win_file:
+    path: "{{ dronerunner_scripts_dir_win }}"
+    state: directory
+
+- name: install startdronerunner.sh script
+  win_template:
+    src: startdronerunner.bat
+    dest: "{{ dronerunner_scripts_dir_win }}\\startdronerunner.bat"
+  notify: start runner windows

@@ -15,3 +15,8 @@ icacls $keysfile /remove "Authenticated Users"
 
 Add-Content C:\ProgramData\ssh\sshd_config "PasswordAuthentication no"
 Restart-Service -Name sshd
+
+docker pull cppalliance/dronevs2015:latest
+docker pull cppalliance/dronevs2017:latest
+docker pull cppalliance/dronevs2019:latest
+docker pull cppalliance/dronevs2022:latest
