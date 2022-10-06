@@ -1,0 +1,81 @@
+---
+
+- name: Install required packages
+  package:
+    name: "{{ dronerunner_packages }}"
+    state: present
+
+- name: Create a symbolic link - git
+  ansible.builtin.file:
+    src: /usr/local/bin/git
+    dest: /usr/bin/git
+    owner: root
+    group: wheel
+    state: link
+
+- name: Create a symbolic link - bash
+  ansible.builtin.file:
+    src: /usr/local/bin/bash
+    dest: /bin/bash
+    owner: root
+    group: wheel
+    state: link
+
+- name: Create a symbolic link - python
+  ansible.builtin.file:
+    src: /usr/local/bin/python3.9
+    dest: /usr/local/bin/python
+    owner: root
+    group: wheel
+    state: link
+
+- name: Set a hostname
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Add the user 'drone'
+  ansible.builtin.user:
+    name: "{{ dronerunner_user }}"
+
+- name: Check for dronerunner
+  stat: path=/usr/local/bin/drone-runner-exec
+  register: drone_exec
+
+- name: Download dronerunner
+  get_url:
+    url: https://github.com/drone-runners/drone-runner-exec/releases/latest/download/drone_runner_exec_freebsd_amd64.tar.gz
+    dest: /tmp
+  when:
+    - not drone_exec.stat.exists
+
+- name: extract archive  # noqa command-instead-of-module
+  ansible.builtin.shell: |
+    tar -xvf /tmp/drone_runner_exec_freebsd_amd64.tar.gz
+    mv drone-runner-exec /usr/local/bin/drone-runner-exec
+  when:
+    - not drone_exec.stat.exists
+
+- name: Create directory for drone
+  ansible.builtin.file:
+    path: "/home/{{ dronerunner_user }}/.drone-runner-exec"
+    owner: "{{ dronerunner_user }}"
+    group: "{{ dronerunner_user }}"
+    mode: '0755'
+    state: directory
+
+- name: install dronerunner config
+  template:
+    src: config_freebsd_agent
+    dest: "/home/{{ dronerunner_user }}/.drone-runner-exec/config"
+    owner: "{{ dronerunner_user }}"
+    group: "{{ dronerunner_user }}"
+    mode: 0644
+    force: false
+
+- name: install dronerunner service
+  template:
+    src: freebsd.rc
+    dest: "/etc/rc.d/dronerunner"
+    owner: "root"
+    group: "wheel"
+    mode: 0755

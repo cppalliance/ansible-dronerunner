@@ -1,0 +1,8 @@
+DRONE_RPC_PROTO={{ dronerunner_drone_rpc_proto }}
+DRONE_RPC_HOST={{ dronerunner_drone_rpc_host }}
+DRONE_RPC_SECRET={{ dronerunner_drone_rpc_secret }}
+DRONE_RUNNER_CAPACITY={{ dronerunner_drone_runner_capacity }}
+DRONE_RUNNER_NAME={{ inventory_hostname }}
+#DRONE_RUNNER_PATH=/usr/local/bin:/usr/bin:/usr/sbin:/sbin
+DRONE_LOG_FILE=/home/{{ dronerunner_user }}/.drone-runner-exec/log.txt
+DRONE_RUNNER_LABELS={{ dronerunner_labels }}

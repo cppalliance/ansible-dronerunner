@@ -32,5 +32,4 @@ dronerunner_packages:
   - htop
   - mlocate
 
-droneunner_packages_prereq1: []
 dronerunner_hyperthreading_disable: true

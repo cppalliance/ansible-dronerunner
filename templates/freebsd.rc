@@ -1,0 +1,17 @@
+#!/bin/sh
+
+. /etc/rc.subr
+
+user="drone"
+name="dronerunner"
+start_cmd="${name}_start"
+stop_cmd="pkill drone-runner-exec"
+
+dronerunner_start()
+{
+	echo "Starting dronerunner"
+        su $user -c "/usr/local/bin/drone-runner-exec daemon /home/drone/.drone-runner-exec/config" >/dev/null 2>&1 &
+}
+
+load_rc_config $name
+run_rc_command "$1"

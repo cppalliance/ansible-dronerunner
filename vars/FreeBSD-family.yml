@@ -1,0 +1,13 @@
+---
+# Ansible adds label "test". Manually remove it on the target machine after validation.
+default_dronerunner_labels: "os:freebsd13.1,test:true"
+
+default_dronerunner_drone_runner_capacity: 2
+
+dronerunner_packages:
+  - htop
+  - nload
+  - gcc
+  - bash
+  - git
+  - curl
