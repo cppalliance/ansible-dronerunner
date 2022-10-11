@@ -11,3 +11,4 @@ dronerunner_packages:
   - bash
   - git
   - curl
+  - icu
