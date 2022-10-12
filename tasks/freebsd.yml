@@ -29,6 +29,25 @@
     group: wheel
     state: link
 
+- name: Create a symbolic link - g++ and clang++
+  ansible.builtin.file:
+    src: /usr/local/bin/{{ item.src }}
+    dest: /usr/local/bin/{{ item.dest }}
+    owner: root
+    group: wheel
+    state: link
+  with_items:
+     - { src: g++8, dest: g++-8 }
+     - { src: g++9, dest: g++-9 }
+     - { src: g++10, dest: g++-10 }
+     - { src: g++11, dest: g++-11 }
+     - { src: clang++10, dest: clang++-10 }
+     - { src: clang++11, dest: clang++-11 }
+     - { src: clang++12, dest: clang++-12 }
+     - { src: clang++13, dest: clang++-13 }
+     - { src: clang++14, dest: clang++-14 }
+     - { src: clang++15, dest: clang++-15 }
+
 - name: Set a hostname
   ansible.builtin.hostname:
     name: "{{ inventory_hostname }}"

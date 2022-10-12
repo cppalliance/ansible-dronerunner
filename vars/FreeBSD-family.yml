@@ -7,8 +7,18 @@ default_dronerunner_drone_runner_capacity: 2
 dronerunner_packages:
   - htop
   - nload
-  - gcc
   - bash
   - git
   - curl
   - icu
+  - gcc
+  - gcc11
+  - gcc10
+  - gcc9
+  - gcc8
+  - llvm15
+  - llvm14
+  - llvm13
+  - llvm12
+  - llvm11
+  - llvm10
