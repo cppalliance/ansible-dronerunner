@@ -1,15 +1,17 @@
 ---
-# from http://rapidprogrammer.com/how-to-install-homebrew-with-ansible
-# still untested
-- name: Check if Homebrew is already installed
-  stat:
-    path: /usr/local/bin/brew
-  register: b
+- name: Check if brew is installed
+  shell: |
+    export PATH=/usr/local/bin:/opt/homebrew/bin:$PATH
+    command -v brew
+  args:
+    executable: /bin/bash
+  register: does_brew_exist
+  ignore_errors: true
+  changed_when: false
 
-- name: Install Homebrew
-  script: install-homebrew.sh
-  when: not b.stat.exists
-  become: false
+- name: Install brew
+  command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+  when: does_brew_exist.rc
 
 - name: Set hostname
   ansible.builtin.shell: |
@@ -71,14 +73,14 @@
   become: false
   ansible.builtin.shell: |
     sleep 1
-    /usr/local/bin/enable_autologin {{ dronerunner_user }} {{ dronerunner_password }}
+    enable_autologin {{ dronerunner_user }} {{ dronerunner_password }}
   args:
     creates: /etc/kcpassword
   notify: reboot mac
   when:
     - not kc.stat.exists
   environment:
-    PATH: /usr/local/bin:{{ ansible_env.PATH }}
+    PATH: /usr/local/bin:/opt/homebrew/bin:{{ ansible_env.PATH }}
 
 # Done with kcpassword steps
 - name: Move CommandLineTools to .bck

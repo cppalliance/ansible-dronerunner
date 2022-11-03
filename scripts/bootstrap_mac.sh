@@ -53,9 +53,27 @@ fi
 
 # XCode and other packages:
 
+# Check if /Library/Developer/CommandLineTools is installed. This is a new requirement and it's unclear which OS versions it should apply to.
+
+if [[ "$(uname -p)" =~ "arm" ]]; then
+    if xcode-select -p; then
+        echo "CommandLineTools are already installed"
+    else
+        sudo softwareupdate -l
+        sudo softwareupdate -i "Command Line Tools for Xcode-13.4"
+    fi
+fi
+
 # Install brew
-if [ ! -f /usr/local/bin/brew ]; then
+
+export PATH=/usr/local/bin:/opt/homebrew/bin:$PATH
+if command -v brew ; then
+    echo "Brew already installed"
+else
+    echo "Install brew"
+    set +x
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+    set -x
 fi
 
 brew install htop
@@ -69,8 +87,17 @@ brew install pkg-config
 brew install openssl
 brew install gcc
 
-opensslpackage=$(brew list | grep openssl | tail -n 1)
-ln -s /usr/local/opt/$opensslpackage /usr/local/opt/openssl || true
+if [[ "$(uname -p)" =~ "arm" ]]; then
+    sudo mkdir -p /usr/local/opt
+    sudo chown administrator:admin /usr/local/opt
+    sudo mkdir -p /usr/local/bin
+    sudo chown administrator:admin /usr/local/bin
+
+    ln -s /opt/homebrew/opt/openssl /usr/local/opt/openssl
+else
+    opensslpackage=$(brew list | grep openssl | tail -n 1)
+    ln -s /usr/local/opt/$opensslpackage /usr/local/opt/openssl || true
+fi
 
 expect_commands='
 set timeout -1
@@ -87,13 +114,26 @@ send -- "no\n"
 expect eof
 '
 
-if [[ "$(sw_vers -productVersion)" =~ "12.4" ]] ; then
-
+# if [[ "$(sw_vers -productVersion)" =~ "12.4" ]] ; then
+if [[ $(sw_vers -productVersion) =~ ^12 ]] || [[ $(sw_vers -productVersion) =~ ^13 ]] ; then
+    xcodeversions="12.5 12.5.1 13.0 13.1 13.2 13.2.1 13.3 13.3.1 13.4 13.4.1 14.0 14.1"
+    gccversion="12"
+    pythonversion="3.9"
     brew install python
-    ln -s /usr/local/bin/python3.9 /usr/local/bin/python3
-    ln -s /usr/local/bin/python3 /usr/local/bin/python
+    if [[ "$(uname -p)" == "arm" ]]; then
+        ln -s /opt/homebrew/bin/python3 /usr/local/bin/python3
+        ln -s /usr/local/bin/python3 /usr/local/bin/python
+    else
+        ln -s /usr/local/bin/python${pythonversion} /usr/local/bin/python3
+        ln -s /usr/local/bin/python3 /usr/local/bin/python
+    fi
 
-    xcodeversions="12.5 12.5.1 13.0 13.1 13.2 13.2.1 13.3 13.3.1 13.4 13.4.1"
+    if [[ "$(uname -p)" == "arm" ]]; then
+        ln -s /opt/homebrew/bin/g++-$gccversion /usr/local/bin/
+        ln -s /opt/homebrew/bin/gcc-$gccversion /usr/local/bin/
+        ln -s /opt/homebrew/bin/gcov-$gccversion /usr/local/bin/
+    fi
+
     sudo xcrun gem install xcode-install --no-document
 
     # Trigger authentication with Apple.
@@ -128,6 +168,9 @@ expect -c "${expect_commands//
     sudo xcodebuild -license accept
 
     brew install bash
+    if [ ! -f /usr/local/bin/bash ]; then
+        ln -s /opt/homebrew/bin/bash /usr/local/bin/
+    fi
 fi
 
 if [[ "$(sw_vers -productVersion)" =~ "10.15" ]] ; then
