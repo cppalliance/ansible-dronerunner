@@ -10,6 +10,7 @@ docker run -d \
   -e DRONE_DEBUG="{{ dronerunner_drone_logs_debug }}" \
   -e DRONE_TRACE="{{ dronerunner_drone_logs_trace }}" \
   -e DRONE_AGENT_ARCH="{{ dronerunner_drone_agent_arch }}" \
+  -e DRONE_RUNNER_LABELS="{{ dronerunner_labels }}" \
   -p 3000:3000 \
   --restart always \
   --name runner \

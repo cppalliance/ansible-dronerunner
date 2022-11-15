@@ -6,3 +6,5 @@ DRONE_RUNNER_NAME={{ inventory_hostname }}
 #DRONE_RUNNER_PATH=/usr/local/bin:/usr/bin:/usr/sbin:/sbin
 DRONE_LOG_FILE=/Users/{{ dronerunner_user }}/.drone-runner-exec/log.txt
 DRONE_RUNNER_LABELS={{ dronerunner_labels }}
+DRONE_DEBUG={{ dronerunner_drone_logs_debug }}
+DRONE_TRACE={{ dronerunner_drone_logs_trace }}

@@ -1,2 +1,3 @@
 ---
 dronerunner_drone_runner_capacity: 6
+default_dronerunner_labels: "test:true"

@@ -20,3 +20,5 @@ vi /etc/ansible/group_vars/dronerunners/vault
 ```
 vault_dronerunner_drone_rpc_secret: the_secret
 ```
+
+This role sets drone labels "test:true". If everything is working on the node, manually remove that label and restart.

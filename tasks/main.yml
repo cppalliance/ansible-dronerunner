@@ -42,7 +42,7 @@
   when: ansible_system == 'Darwin'
 
 - name: include windows client
-  include: windows.yml
+  include: windows_full.yml
   when: ansible_system == 'Win32NT'
 
 - name: include freebsd client

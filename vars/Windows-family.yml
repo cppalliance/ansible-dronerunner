@@ -1,4 +1,5 @@
 ---
 default_dronerunner_drone_runner_capacity: 2
-dronerunner_drone_logs_debug: true
-dronerunner_drone_logs_trace: true
+dronerunner_drone_logs_debug: false
+dronerunner_drone_logs_trace: false
+default_dronerunner_labels: "test:true"

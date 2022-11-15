@@ -8,6 +8,13 @@
       docker rm runner || true
       /opt/drone/scripts/startdronerunner.sh
 
+- name: start runner freebsd
+  args:
+    executable: /bin/sh
+  ansible.builtin.shell:
+    cmd: |
+      service dronerunner start
+
 - name: start runner windows
   ansible.windows.win_shell: |
     docker stop runner

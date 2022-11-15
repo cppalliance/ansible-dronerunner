@@ -32,12 +32,13 @@
   win_shell: Install-Package –ProviderName "DockerMsftProvider" -Name "Docker" -Force
   args:
     creates: "C:\\Program Files\\Docker\\metadata.json"
-  # register: dockerinstall
+  register: dockerinstall
   notify: reboot windows
 
-# - name: Reboot server if Docker package requires it
-#   win_reboot:
-#   when: dockerinstall.changed
+# why was this commented out? Seems like a good idea. Test again.
+- name: Reboot server if Docker package requires it
+  win_reboot:
+  when: dockerinstall.changed
 
 - name: Create script directory
   ansible.windows.win_file:
@@ -49,3 +50,16 @@
     src: startdronerunner.bat
     dest: "{{ dronerunner_scripts_dir_win }}\\startdronerunner.bat"
   notify: start runner windows
+
+# Will this work, or must wait until after a reboot?
+- name: Start docker service
+  win_shell: |
+    Start-Service -Name "docker"
+
+# Will this work, or must wait until after a reboot?
+- name: Pull images
+  win_shell: |
+    docker pull cppalliance/dronevs2015:latest
+    docker pull cppalliance/dronevs2017:latest
+    docker pull cppalliance/dronevs2019:latest
+    docker pull cppalliance/dronevs2022:latest
