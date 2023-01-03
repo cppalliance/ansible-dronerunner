@@ -98,4 +98,4 @@
     owner: "root"
     group: "wheel"
     mode: 0755
-  notifies: start runner freebsd
+  notify: start runner freebsd

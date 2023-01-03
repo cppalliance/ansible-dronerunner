@@ -13,8 +13,9 @@ $keysfile = "C:\ProgramData\ssh\administrators_authorized_keys"
 
 iex ((new-object net.webclient).DownloadString('https://chocolatey.org/install.ps1'))
 choco install -y --package-parameters=/SSHServerFeature openssh
-choco install vim
-choco install git
+# the following packages are not strictly required, but convenient to have.
+choco install -y vim
+choco install -y git
 
 Add-Content $keysfile $pubkey1
 icacls $keysfile /inheritance:d
