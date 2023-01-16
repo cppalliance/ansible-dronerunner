@@ -133,14 +133,14 @@
 
 - name: Download dronerunner
   get_url:
-    url: https://github.com/drone-runners/drone-runner-exec/releases/latest/download/drone_runner_exec_darwin_amd64.tar.gz
+    url: https://github.com/drone-runners/drone-runner-exec/releases/latest/download/drone_runner_exec_darwin_{{ ansible_architecture }}.tar.gz
     dest: /tmp
   when:
     - not drone_exec.stat.exists
 
 - name: extract archive  # noqa command-instead-of-module
   ansible.builtin.shell: |
-    tar -xvf /tmp/drone_runner_exec_darwin_amd64.tar.gz
+    tar -xvf /tmp/drone_runner_exec_darwin_{{ ansible_architecture }}.tar.gz
     mv drone-runner-exec /usr/local/bin/drone-runner-exec
   when:
     - not drone_exec.stat.exists
