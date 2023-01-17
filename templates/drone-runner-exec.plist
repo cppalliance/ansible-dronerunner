@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN"
+"http://www.apple.com/DTDs/PropertyList-1.0.dtd" >
+<plist version='1.0'>
+<dict>
+<key>Label</key><string>drone-runner-exec</string>
+<key>UserName</key>
+<string>{{ dronerunner_user }}</string>
+<key>ProgramArguments</key>
+<array>
+        <string>/usr/local/bin/drone-runner-exec</string>
+
+        <string>service</string>
+
+        <string>run</string>
+
+        <string>--config</string>
+
+        <string>/Users/{{ dronerunner_user }}/.drone-runner-exec/config</string>
+
+</array>
+
+
+
+<key>SessionCreate</key><false/>
+<key>KeepAlive</key><true/>
+<key>RunAtLoad</key><true/>
+<key>Disabled</key><false/>
+</dict>
+</plist>
