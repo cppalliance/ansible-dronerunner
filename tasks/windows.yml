@@ -17,6 +17,8 @@
         days_of_week: sunday
         start_boundary: '2017-10-09T09:00:00'
     username: Administrator
+    password: "{{ dronerunner_machine_password }}"
+    logon_type: s4u
     state: present
     enabled: true
   when:
@@ -36,6 +38,8 @@
         days_of_week: sunday
         start_boundary: '2017-10-09T09:00:00'
     username: Administrator
+    password: "{{ dronerunner_machine_password }}"
+    logon_type: s4u
     state: present
     enabled: true
   when:
@@ -50,4 +54,5 @@
   win_template:
     src: startdronerunner.bat
     dest: "{{ dronerunner_scripts_dir_win }}\\startdronerunner.bat"
+    force: false
     # notify: start runner windows

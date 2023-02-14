@@ -53,6 +53,7 @@
 
 # Will this work, or must wait until after a reboot?
 - name: Start docker service
+  force: false
   win_shell: |
     Start-Service -Name "docker"
 
@@ -65,8 +66,8 @@
     name: ScheduledReboot
     description: scheduledreboot
     actions:
-      - path: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
-        arguments: Restart-Computer
+      - path: shutdown
+        arguments: /r
     triggers:
       - type: monthlydow
         weeks_of_month: 1,3
@@ -74,6 +75,8 @@
         days_of_week: sunday
         start_boundary: '2017-10-09T09:00:00'
     username: Administrator
+    password: "{{ dronerunner_machine_password }}"
+    logon_type: s4u
     state: present
     enabled: true
   when:
@@ -84,8 +87,8 @@
     name: ScheduledReboot
     description: scheduledreboot
     actions:
-      - path: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
-        arguments: Restart-Computer
+      - path: shutdown
+        arguments: /r
     triggers:
       - type: monthlydow
         weeks_of_month: 2,4
@@ -93,6 +96,8 @@
         days_of_week: sunday
         start_boundary: '2017-10-09T09:00:00'
     username: Administrator
+    password: "{{ dronerunner_machine_password }}"
+    logon_type: s4u
     state: present
     enabled: true
   when:
