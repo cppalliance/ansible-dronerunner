@@ -10,6 +10,9 @@ docker run -d \
   -e DRONE_DEBUG="{{ dronerunner_drone_logs_debug }}" \
   -e DRONE_TRACE="{{ dronerunner_drone_logs_trace }}" \
   -e DRONE_AGENT_ARCH="{{ dronerunner_drone_agent_arch }}" \
+{% if dronerunner_clone_image is defined %}
+  -e DRONE_RUNNER_CLONE_IMAGE="{{ dronerunner_clone_image }}" \
+{% endif %}
   -e DRONE_RUNNER_LABELS="{{ dronerunner_labels }}" \
   -p 3000:3000 \
   --restart always \
