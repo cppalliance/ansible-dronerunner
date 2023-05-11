@@ -7,6 +7,10 @@
     - name: Check if swap file exists
       stat:
         path: "{{ swap_file_path }}"
+        get_checksum: no
+        get_md5: no
+        get_mime: no
+        get_attributes: no
       register: swap_file_check
       changed_when: false
 
