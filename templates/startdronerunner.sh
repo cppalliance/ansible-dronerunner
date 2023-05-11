@@ -15,6 +15,6 @@ docker run -d \
 {% endif %}
   -e DRONE_RUNNER_LABELS="{{ dronerunner_labels }}" \
   -p 3000:3000 \
-  --restart always \
+  --restart unless-stopped \
   --name runner \
   {{ dronerunner_docker_image }}
