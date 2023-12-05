@@ -75,13 +75,21 @@ else
 fi
 
 # Brew recommendation:
-(echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> /Users/administrator/.zprofile
+shell_initialization_file=/Users/administrator/.profile
+if [ grep "brew" ${shell_initialization_file} ];then
+    echo "brew already in startup"
+else
+    echo "adding brew to startup"
+    (echo; echo 'eval "$(/opt/homebrew/bin/brew shellenv)"') >> /Users/administrator/.zprofile
+fi
+
 eval "$(/opt/homebrew/bin/brew shellenv)"
 #
 # Previously I used
 # .zshrc:   export PATH=/opt/homebrew/bin:$PATH
 
 brew install htop
+brew install nload
 brew install wget
 brew install cmake
 brew install lcov
@@ -98,7 +106,7 @@ if [[ "$(uname -p)" =~ "arm" ]]; then
     sudo mkdir -p /usr/local/bin
     sudo chown administrator:admin /usr/local/bin
 
-    ln -s /opt/homebrew/opt/openssl /usr/local/opt/openssl
+    ln -s /opt/homebrew/opt/openssl /usr/local/opt/openssl || true
 else
     opensslpackage=$(brew list | grep openssl | tail -n 1)
     ln -s /usr/local/opt/$opensslpackage /usr/local/opt/openssl || true
@@ -120,24 +128,24 @@ expect eof
 '
 
 
-if [[ $(sw_vers -productVersion) =~ ^14 ]] ]] ; then
+if [[ $(sw_vers -productVersion) =~ ^14 ]] ; then
 
     xcodeversions="14.2.0 14.3.0 14.3.1 15.0.0 15.0.1"
     gccversion="13"
     pythonversion="3.11"
     brew install python
     if [[ "$(uname -p)" == "arm" ]]; then
-        ln -s /opt/homebrew/bin/python3 /usr/local/bin/python3
-        ln -s /usr/local/bin/python3 /usr/local/bin/python
+        ln -s /opt/homebrew/bin/python3 /usr/local/bin/python3 || true
+        ln -s /usr/local/bin/python3 /usr/local/bin/python || true
     else
-        ln -s /usr/local/bin/python${pythonversion} /usr/local/bin/python3
-        ln -s /usr/local/bin/python3 /usr/local/bin/python
+        ln -s /usr/local/bin/python${pythonversion} /usr/local/bin/python3 || true
+        ln -s /usr/local/bin/python3 /usr/local/bin/python || true
     fi
 
     if [[ "$(uname -p)" == "arm" ]]; then
-        ln -s /opt/homebrew/bin/g++-$gccversion /usr/local/bin/
-        ln -s /opt/homebrew/bin/gcc-$gccversion /usr/local/bin/
-        ln -s /opt/homebrew/bin/gcov-$gccversion /usr/local/bin/
+        ln -s /opt/homebrew/bin/g++-$gccversion /usr/local/bin/ || true
+        ln -s /opt/homebrew/bin/gcc-$gccversion /usr/local/bin/ || true
+        ln -s /opt/homebrew/bin/gcov-$gccversion /usr/local/bin/ || true
     fi
 
     brew install xcodesorg/made/xcodes
@@ -153,7 +161,7 @@ if [[ $(sw_vers -productVersion) =~ ^14 ]] ]] ; then
 
     for xcodeversion in $xcodeversions; do
         if [ ! -d /Applications/Xcode-$xcodeversion.app ]; then
-            xcodes install $xcodeversion
+            xcodes install --no-superuser $xcodeversion
         else
             echo "Directory /Applications/Xcode-$xcodeversion.app already exists."
         fi
