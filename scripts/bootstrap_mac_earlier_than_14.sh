@@ -164,6 +164,8 @@ expect -c "${expect_commands//
     fi
     sudo xcode-select -switch /Applications/Xcode-12.5.app/Contents/Developer
     sudo xcodebuild -license accept
+    sudo xcode-select -switch /Applications/Xcode-13.0.app/Contents/Developer
+    sudo xcodebuild -license accept
     sudo xcode-select -switch /Applications/Xcode-13.4.1.app/Contents/Developer
     sudo xcodebuild -license accept
 
