@@ -1,7 +1,6 @@
 ---
-
 - name: Install required packages
-  package:
+  ansible.builtin.package:
     name: "{{ dronerunner_packages }}"
     state: present
 
@@ -37,16 +36,16 @@
     group: wheel
     state: link
   with_items:
-     - { src: g++8, dest: g++-8 }
-     - { src: g++9, dest: g++-9 }
-     - { src: g++10, dest: g++-10 }
-     - { src: g++11, dest: g++-11 }
-     - { src: clang++10, dest: clang++-10 }
-     - { src: clang++11, dest: clang++-11 }
-     - { src: clang++12, dest: clang++-12 }
-     - { src: clang++13, dest: clang++-13 }
-     - { src: clang++14, dest: clang++-14 }
-     - { src: clang++15, dest: clang++-15 }
+    - {src: g++8, dest: g++-8}
+    - {src: g++9, dest: g++-9}
+    - {src: g++10, dest: g++-10}
+    - {src: g++11, dest: g++-11}
+    - {src: clang++10, dest: clang++-10}
+    - {src: clang++11, dest: clang++-11}
+    - {src: clang++12, dest: clang++-12}
+    - {src: clang++13, dest: clang++-13}
+    - {src: clang++14, dest: clang++-14}
+    - {src: clang++15, dest: clang++-15}
 
 - name: Set a hostname
   ansible.builtin.hostname:
@@ -57,45 +56,48 @@
     name: "{{ dronerunner_user }}"
 
 - name: Check for dronerunner
-  stat: path=/usr/local/bin/drone-runner-exec
+  ansible.builtin.stat:
+    path: /usr/local/bin/drone-runner-exec
   register: drone_exec
 
 - name: Download dronerunner
-  get_url:
+  ansible.builtin.get_url:
     url: https://github.com/drone-runners/drone-runner-exec/releases/latest/download/drone_runner_exec_freebsd_amd64.tar.gz
     dest: /tmp
+    mode: "0770"
   when:
     - not drone_exec.stat.exists
 
-- name: extract archive  # noqa command-instead-of-module
+- name: Extract archive  # noqa command-instead-of-module
   ansible.builtin.shell: |
     tar -xvf /tmp/drone_runner_exec_freebsd_amd64.tar.gz
     mv drone-runner-exec /usr/local/bin/drone-runner-exec
+  changed_when: true
   when:
     - not drone_exec.stat.exists
 
 - name: Create directory for drone
   ansible.builtin.file:
-    path: "/home/{{ dronerunner_user }}/.drone-runner-exec"
+    path: /home/{{ dronerunner_user }}/.drone-runner-exec
     owner: "{{ dronerunner_user }}"
     group: "{{ dronerunner_user }}"
-    mode: '0755'
+    mode: "0755"
     state: directory
 
-- name: install dronerunner config
-  template:
+- name: Install dronerunner config
+  ansible.builtin.template:
     src: config_freebsd_agent
-    dest: "/home/{{ dronerunner_user }}/.drone-runner-exec/config"
+    dest: /home/{{ dronerunner_user }}/.drone-runner-exec/config
     owner: "{{ dronerunner_user }}"
     group: "{{ dronerunner_user }}"
-    mode: 0644
+    mode: "0644"
     force: false
 
-- name: install dronerunner service
-  template:
+- name: Install dronerunner service
+  ansible.builtin.template:
     src: freebsd.rc
-    dest: "/etc/rc.d/dronerunner"
-    owner: "root"
-    group: "wheel"
-    mode: 0755
+    dest: /etc/rc.d/dronerunner
+    owner: root
+    group: wheel
+    mode: "0755"
   notify: start runner freebsd

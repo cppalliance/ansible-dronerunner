@@ -1,5 +1,6 @@
 ---
-- name: start runner
+- name: Start runner
+  changed_when: true
   args:
     executable: /bin/bash
   ansible.builtin.shell:
@@ -8,21 +9,23 @@
       docker rm runner || true
       /opt/drone/scripts/startdronerunner.sh
 
-- name: start runner freebsd
+# could be modified...
+- name: Start runner freebsd  # noqa command-instead-of-module
+  changed_when: true
   args:
     executable: /bin/sh
   ansible.builtin.shell:
     cmd: |
       service dronerunner start
 
-- name: start runner windows
+- name: Start runner windows
   ansible.windows.win_shell: |
     docker stop runner
     docker rm runner
     {{ dronerunner_scripts_dir_win }}\\startdronerunner.bat
 
-- name: reboot windows
-  win_reboot:
+- name: Reboot windows
+  ansible.windows.win_reboot:
 
-- name: reboot mac
-  reboot:
+- name: Reboot mac
+  ansible.builtin.reboot:

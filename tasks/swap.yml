@@ -3,7 +3,6 @@
 - name: Configure swap
   when: swap_configure | bool | default(false)
   block:
-
     - name: Check if swap file exists
       ansible.builtin.stat:
         path: "{{ swap_file_path }}"
@@ -15,9 +14,7 @@
       changed_when: false
 
     - name: Check if swap is on
-      ansible.builtin.shell:
-        set -o pipefail;
-        swapon --show | grep {{ swap_file_path }}
+      ansible.builtin.shell: set -o pipefail; swapon --show | grep {{ swap_file_path }}
       args:
         executable: /bin/bash
       register: swap_enabled
@@ -43,7 +40,6 @@
     - name: Configure swap
       when: swap_enable|bool
       block:
-
         - name: Create or change the size of swap file
           ansible.builtin.command: dd if=/dev/zero of={{ swap_file_path }} count={{ swap_file_size_mb }} bs=1MiB
           register: swap_file_created
@@ -57,12 +53,10 @@
             path: "{{ swap_file_path }}"
             owner: root
             group: root
-            mode: '0600'
+            mode: "0600"
 
         - name: Check if swap is formatted
-          ansible.builtin.shell:
-            set -o pipefail;
-            file {{ swap_file_path }} | grep 'swap file'
+          ansible.builtin.shell: set -o pipefail; file {{ swap_file_path }} | grep 'swap file'
           args:
             executable: /bin/bash
           register: swap_file_is_formatted

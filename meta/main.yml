@@ -4,7 +4,7 @@ galaxy_info:
   author: sdarwin
   description: Install drone.io runner on a server
   license: BSD
-  min_ansible_version: 2.10
+  min_ansible_version: "2.10"
   platforms:
     - name: Ubuntu
       versions:

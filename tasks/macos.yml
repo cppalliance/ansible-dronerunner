@@ -1,6 +1,6 @@
 ---
 - name: Check if brew is installed
-  shell: |
+  ansible.builtin.shell: |
     export PATH=/usr/local/bin:/opt/homebrew/bin:$PATH
     command -v brew
   args:
@@ -10,7 +10,8 @@
   changed_when: false
 
 - name: Install brew
-  command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+  ansible.builtin.command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+  changed_when: true
   when: does_brew_exist.rc
 
 - name: Set hostname
@@ -26,11 +27,12 @@
     mkdir -p /Users/{{ dronerunner_user }}
     chown {{ dronerunner_user }}:staff /Users/{{ dronerunner_user }}
   args:
-    creates: "/Users/{{ dronerunner_user }}"
+    creates: /Users/{{ dronerunner_user }}
 
 - name: Create backup admin account
   ansible.builtin.shell: |
     set -e
+    set -o pipefail;
     sysadminctl -addUser cppal -fullName cppal -shell /bin/bash -password {{ dronerunner_password }} -home /Users/cppal
     mkdir -p /Users/cppal
     chown cppal:staff /Users/cppal
@@ -47,10 +49,11 @@
     chmod -R 700 $sshdir
     chown -R $user:$group $sshdir
   args:
-    creates: "/Users/cppal"
+    creates: /Users/cppal
+    executable: /bin/bash
 
 # why is this here? There was a reason. node_exporter does write logs to this dir
-- name: change ownership of a directory
+- name: Change ownership of a directory  # noqa risky-file-permissions
   ansible.builtin.file:
     path: /usr/local/var/log
     state: directory
@@ -69,7 +72,8 @@
   notify: reboot mac
 
 - name: Check for dronerunner
-  stat: path=/usr/local/bin/drone-runner-exec
+  ansible.builtin.stat:
+    path: /usr/local/bin/drone-runner-exec
   register: drone_exec
 
 # Requires gnu tar
@@ -80,49 +84,52 @@
 #     remote_src: true
 
 - name: Download dronerunner
-  get_url:
+  ansible.builtin.get_url:
     url: https://github.com/drone-runners/drone-runner-exec/releases/latest/download/drone_runner_exec_darwin_{{ ansible_architecture }}.tar.gz
     dest: /tmp
+    mode: '0660'
   when:
     - not drone_exec.stat.exists
 
-- name: extract archive  # noqa command-instead-of-module
+- name: Extract archive  # noqa command-instead-of-module
   ansible.builtin.shell: |
     tar -xvf /tmp/drone_runner_exec_darwin_{{ ansible_architecture }}.tar.gz
     mv drone-runner-exec /usr/local/bin/drone-runner-exec
+  changed_when: true
   when:
     - not drone_exec.stat.exists
 
 - name: Create directory for drone
   ansible.builtin.file:
-    path: "/Users/{{ dronerunner_user }}/.drone-runner-exec"
+    path: /Users/{{ dronerunner_user }}/.drone-runner-exec
     owner: "{{ dronerunner_user }}"
     group: staff
-    mode: '0755'
+    mode: "0755"
     state: directory
 
-- name: install dronerunner config
-  template:
+- name: Install dronerunner config
+  ansible.builtin.template:
     src: config_mac_agent
-    dest: "/Users/{{ dronerunner_user }}/.drone-runner-exec/config"
+    dest: /Users/{{ dronerunner_user }}/.drone-runner-exec/config
     owner: "{{ dronerunner_user }}"
     group: staff
-    mode: 0644
+    mode: "0644"
     force: false
 
-- name: install launchctl service
-  template:
+- name: Install launchctl service
+  ansible.builtin.template:
     src: drone-runner-exec.plist
     dest: /Library/LaunchDaemons/drone-runner-exec.plist
     owner: root
     group: wheel
-    mode: 0644
+    mode: "0644"
     force: false
 
 - name: Start drone runner
   ansible.builtin.shell: |
     launchctl load /Library/LaunchDaemons/drone-runner-exec.plist
   failed_when: false
+  changed_when: true  # uncertain
 
 # Mac OSX has a memory leak in ARD. Reboot the servers periodically:
 
@@ -150,46 +157,46 @@
 
 # Twice per month strategy:
 
-- name: cron - determine number of server
-  set_fact:
+- name: Cron - determine number of server
+  ansible.builtin.set_fact:
     drone_number_of_server: "{{ inventory_hostname_short | regex_search('(\\d+)$') }}"
 
-- name: cron job to reboot server during first week
+- name: Cron job to reboot server during first week
   ansible.builtin.cron:
-    name: "reboot week 1"
+    name: reboot week 1
     minute: "0"
     hour: "2"
-    day: "1-7"
+    day: 1-7
     job: "[ `date +\\%a` = 'Sun' ] && /sbin/reboot"
   when:
     - drone_number_of_server|int % 2 == 1
 
-- name: cron job to reboot server during second week
+- name: Cron job to reboot server during second week
   ansible.builtin.cron:
-    name: "reboot week 2"
+    name: reboot week 2
     minute: "0"
     hour: "2"
-    day: "8-14"
+    day: 8-14
     job: "[ `date +\\%a` = 'Sun' ] && /sbin/reboot"
   when:
     - drone_number_of_server|int % 2 == 0
 
-- name: cron job to reboot server during third week
+- name: Cron job to reboot server during third week
   ansible.builtin.cron:
-    name: "reboot week 3"
+    name: reboot week 3
     minute: "0"
     hour: "2"
-    day: "15-21"
+    day: 15-21
     job: "[ `date +\\%a` = 'Sun' ] && /sbin/reboot"
   when:
     - drone_number_of_server|int % 2 == 1
 
-- name: cron job to reboot server during fourth week
+- name: Cron job to reboot server during fourth week
   ansible.builtin.cron:
-    name: "reboot week 4"
+    name: reboot week 4
     minute: "0"
     hour: "2"
-    day: "22-28"
+    day: 22-28
     job: "[ `date +\\%a` = 'Sun' ] && /sbin/reboot"
   when:
     - drone_number_of_server|int % 2 == 0

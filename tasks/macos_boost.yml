@@ -1,17 +1,16 @@
 ---
-
 # Not currently being run. Ansible isn't handling interactive 2FA well, and
 # that is required for the XCode installs.
 # Using scripts/bootstrap_mac.sh
 
 # from http://rapidprogrammer.com/how-to-install-homebrew-with-ansible
 - name: Check if Homebrew is already installed
-  stat:
+  ansible.builtin.stat:
     path: /usr/local/bin/brew
   register: b
 
 - name: Install Homebrew
-  script: install-homebrew.sh
+  ansible.builtin.script: install-homebrew.sh
   when: not b.stat.exists
   become: false
 
@@ -30,7 +29,7 @@
   become: false
 
 - name: Add ruby PATH for mac 10.13
-  lineinfile:
+  ansible.builtin.lineinfile:
     name: ~/.profile
     line: "{{ dronerunner_ruby_path }}"
     state: present
@@ -68,11 +67,13 @@
 #     sudo xcodebuild -license accept
 #
 - name: Check presence of /Library/Developer/CommandLineTools
-  stat: path=/Library/Developer/CommandLineTools
+  ansible.builtin.stat:
+    path: /Library/Developer/CommandLineTools
   register: commandlinetools_stat
 
 - name: Move commandlinetools
-  command: /Library/Developer/CommandLineTools
+  ansible.builtin.command: /Library/Developer/CommandLineTools
+  changed_when: true
   when: commandlinetools_stat.stat.exists
 
 - name: Accept Xcode license  # noqa no-changed-when

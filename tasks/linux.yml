@@ -1,19 +1,19 @@
 ---
-- name: include swap configuration
-  include: swap.yml
+- name: Include swap configuration
+  ansible.builtin.include_tasks: swap.yml
 
-- name: install rc.local file
-  template:
+- name: Install rc.local file
+  ansible.builtin.template:
     src: rc.local
     dest: /etc/rc.local
     owner: root
     group: root
-    mode: '0755'
+    mode: "0755"
   when:
     - dronerunner_hyperthreading_disable
 
-- name: disable hyperthreading
-  shell:
+- name: Disable hyperthreading
+  ansible.builtin.shell:
     cmd: echo off > /sys/devices/system/cpu/smt/control
   when:
     - dronerunner_hyperthreading_disable
@@ -27,20 +27,20 @@
 #   when: ansible_distribution == "RedHat"
 
 - name: Install required packages - prereqs
-  package:
+  ansible.builtin.package:
     name: "{{ dronerunner_packages_prereqs1 }}"
     state: present
 
 # Could used variables more in the future if necessary
-- name: yum-config-manager
-  command:
+- name: Yum-config-manager
+  ansible.builtin.command:
     cmd: yum-config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
   when:
     - ansible_distribution == "RedHat"
   changed_when: false
 
 - name: Install required packages
-  package:
+  ansible.builtin.package:
     name: "{{ dronerunner_packages }}"
     state: present
     update_cache: true
@@ -55,14 +55,14 @@
   ansible.builtin.file:
     path: /opt/drone/scripts
     state: directory
-    mode: '0755'
+    mode: "0755"
 
-- name: install startdronerunner.sh script
-  template:
+- name: Install startdronerunner.sh script
+  ansible.builtin.template:
     src: startdronerunner.sh
     dest: /opt/drone/scripts/startdronerunner.sh
     force: false
     owner: root
     group: root
-    mode: '0755'
+    mode: "0755"
   notify: start runner
