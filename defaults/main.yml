@@ -34,3 +34,5 @@ dronerunner_packages:
   - mlocate
 
 dronerunner_hyperthreading_disable: true
+
+dronerunner_cleaner_exclude_list: "aabbcc|xxyyzz"

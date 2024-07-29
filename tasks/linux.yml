@@ -66,3 +66,19 @@
     group: root
     mode: "0755"
   notify: start runner
+
+- name: Install clean.sh script
+  ansible.builtin.template:
+    src: clean.sh.j2
+    dest: /opt/drone/scripts/clean.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Cron job to run clean.sh
+  ansible.builtin.cron:
+    name: Run clean.sh
+    minute: "0"
+    hour: "2"
+    day: 1
+    job: "/opt/drone/scripts/clean.sh > /tmp/clean.txt 2>&1"

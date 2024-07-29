@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -x
+
+# Examples of deletion methods
+
+# matchers="aabbcc xxyyzz"
+# for match in ${matchers}; do
+#     docker images | grep $match | tr -s " "  | cut -d' ' -f3 | xargs docker rmi
+# done
+#
+# references="aabbcc xxyyzz"
+# for reference in ${references}; do
+#     docker images --filter reference=${reference} | awk 'NR>1' | tr -s " "  |  awk '{print $1 ":" $2}' | xargs docker rmi
+# done
+
+# Only specifying exclusions would be more robust
+
+cleaner_exclude_list="{{ dronerunner_cleaner_exclude_list }}"
+
+docker images | grep -E -v ${cleaner_exclude_list} | tr -s " "  | cut -d' ' -f3 | xargs docker rmi
+
+true
