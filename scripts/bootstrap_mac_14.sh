@@ -25,7 +25,7 @@ export XCODES_PASSWORD=
 set -xe
 user=administrator
 group=staff
-sshdir=/Users/administrator/.ssh
+sshdir=/Users/${user}/.ssh
 pubkey1="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCH0oawPzIylSjdu/fpyDD2i2stkqe52bFmLT8+MeiTAp5WI8BwlbeeiiZkneEHhLW7bGMKZ50rQONjiudWCFibb4zM2pUQTFP91BuzUG7MjFf179UlvRMUiNSYkKSSB4q0QZ8+2Vjj5lXzYxM5FjZ9FdA1ioI5l8TK8rLlf/F1TKKDfjA/YMk7769BVYndDilSidaDEvRVxQM8Z5RBUnSnDFQwEaVOuVaHIki0ZPVecwyE96e2HaFDRjNlMUZbSgHrdwkjbIugaUfiWFANBA5eIOka19CSLV5aY1tNeawoUvIBsRXjUleFJE+EIL0iGcuTcLXvAqh5UwFdMkkwUfhH drone-runner"
 
 if [ ! -f /etc/sudoers.d/$user ]; then
@@ -38,6 +38,28 @@ mkdir -p $sshdir
 echo "$pubkey1" > $sshdir/authorized_keys
 chmod -R 700 $sshdir
 chown -R $user:$group $sshdir
+
+####
+
+user=cppal
+group=staff
+
+# sysadminctl -addUser ${user} -fullName ${user} -shell /bin/bash -password ${password} -home /Users/${user}
+sysadminctl -addUser ${user} -fullName ${user} -shell /bin/bash -home /Users/${user}
+mkdir -p /Users/${user}
+chown ${user}:${group} /Users/${user}
+dscl . -append /Groups/admin GroupMembership ${user}
+sshdir=/Users/${user}/.ssh
+# pubkey1="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCH0oawPzIylSjdu/fpyDD2i2stkqe52bFmLT8+MeiTAp5WI8BwlbeeiiZkneEHhLW7bGMKZ50rQONjiudWCFibb4zM2pUQTFP91BuzUG7MjFf179UlvRMUiNSYkKSSB4q0QZ8+2Vjj5lXzYxM5FjZ9FdA1ioI5l8TK8rLlf/F1TKKDfjA/YMk7769BVYndDilSidaDEvRVxQM8Z5RBUnSnDFQwEaVOuVaHIki0ZPVecwyE96e2HaFDRjNlMUZbSgHrdwkjbIugaUfiWFANBA5eIOka19CSLV5aY1tNeawoUvIBsRXjUleFJE+EIL0iGcuTcLXvAqh5UwFdMkkwUfhH drone-runner"
+if [ ! -f /etc/sudoers.d/${user} ]; then
+    sudo echo "$user ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/$user
+fi
+mkdir -p $sshdir
+echo "$pubkey1" > $sshdir/authorized_keys
+chmod -R 700 $sshdir
+chown -R $user:$group $sshdir
+
+#####
 
 if [ -z "$XCODES_USERNAME" ] || [ -z "$XCODES_PASSWORD" ]; then
   echo "Set both XCODES_USERNAME and XCODES_PASSWORD:
