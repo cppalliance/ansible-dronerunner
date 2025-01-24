@@ -54,7 +54,7 @@ In tasks/macos.yml
     enable_autologin {{ dronerunner_user }} {{ dronerunner_password }}
   args:
     creates: /etc/kcpassword
-  notify: reboot mac
+  notify: Reboot mac
   when:
     - not kc.stat.exists
   environment:

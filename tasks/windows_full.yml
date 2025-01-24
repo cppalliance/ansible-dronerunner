@@ -32,7 +32,7 @@
   args:
     creates: C:\Program Files\Docker\metadata.json
   register: dockerinstall
-  notify: reboot windows
+  notify: Reboot windows
 
 # why was this commented out? Seems like a good idea. Test again.
 - name: Reboot server if Docker package requires it  # noqa no-handler
@@ -48,7 +48,7 @@
   ansible.windows.win_template:
     src: startdronerunner.bat
     dest: "{{ dronerunner_scripts_dir_win }}\\startdronerunner.bat"
-  notify: start runner windows
+  notify: Start runner windows
 
 # Will this work, or must wait until after a reboot?
 - name: Start docker service

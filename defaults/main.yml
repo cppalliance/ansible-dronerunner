@@ -31,7 +31,7 @@ dronerunner_packages:
   - docker.io
   - nload
   - htop
-  - mlocate
+  - locate
 
 dronerunner_hyperthreading_disable: true
 

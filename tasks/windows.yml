@@ -55,9 +55,8 @@
     src: startdronerunner.bat
     dest: "{{ dronerunner_scripts_dir_win }}\\startdronerunner.bat"
     force: false
-    # notify: start runner windows
+    # notify: Start runner windows
 
----
 - name: Install clean.sh script
   ansible.builtin.template:
     src: clean.sh.j2

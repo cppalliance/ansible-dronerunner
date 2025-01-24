@@ -65,7 +65,7 @@
     owner: root
     group: root
     mode: "0755"
-  notify: start runner
+  notify: Start runner
 
 - name: Install clean.sh script
   ansible.builtin.template:

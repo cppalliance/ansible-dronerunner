@@ -69,7 +69,7 @@
     softwareupdate -i -a
   args:
     creates: /Users/drone/.ansible/installed_initial_mac_software_updates
-  notify: reboot mac
+  notify: Reboot mac
 
 - name: Check for dronerunner
   ansible.builtin.stat:
