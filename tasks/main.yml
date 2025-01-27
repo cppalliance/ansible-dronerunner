@@ -15,8 +15,6 @@
   when:
     - ansible_distribution == 'MacOSX'
 
----
-
 - name: Include Distribution version specific variables for Mac
   ansible.builtin.include_vars: "{{ macos_version }}.yml"
   failed_when: false

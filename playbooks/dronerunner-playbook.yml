@@ -1,0 +1,12 @@
+---
+- name: Install dronerunner (not Windows)
+  hosts: newservers:!windows
+  remote_user: ubuntu
+  become: true
+  roles:
+    - { role: 'sdarwin.dronerunner' }
+
+- name: Install dronerunner (Windows)
+  hosts: newservers:&windows
+  roles:
+    - { role: 'sdarwin.dronerunner' }
