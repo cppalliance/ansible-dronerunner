@@ -1,4 +1,5 @@
 #!/bin/bash
 
+# This is disrupting lscpu on ubuntu 18
 # disable hyperthreading
-echo off > /sys/devices/system/cpu/smt/control
+# echo off > /sys/devices/system/cpu/smt/control

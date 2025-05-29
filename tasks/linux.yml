@@ -12,12 +12,13 @@
   when:
     - dronerunner_hyperthreading_disable
 
-- name: Disable hyperthreading
-  ansible.builtin.shell:
-    cmd: echo off > /sys/devices/system/cpu/smt/control
-  when:
-    - dronerunner_hyperthreading_disable
-  changed_when: false
+# This is disrupting lscpu on ubuntu 18
+# - name: Disable hyperthreading
+#   ansible.builtin.shell:
+#     cmd: echo off > /sys/devices/system/cpu/smt/control
+#   when:
+#     - dronerunner_hyperthreading_disable
+#   changed_when: false
 
 # - name: Add repository
 #   yum_repository:
@@ -82,3 +83,14 @@
     hour: "2"
     day: 1
     job: "/opt/drone/scripts/clean.sh > /tmp/clean.txt 2>&1"
+
+- name: Fix password expiration
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: '^PASS_MAX_DAYS'
+    line: "PASS_MAX_DAYS 99999"
+
+- name: Uninstall packages
+  ansible.builtin.package:
+    name: unattended-upgrades
+    state: absent
