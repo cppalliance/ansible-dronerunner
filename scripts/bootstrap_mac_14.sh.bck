@@ -41,25 +41,23 @@ chown -R $user:$group $sshdir
 
 ####
 
-if true ; then
-    user=cppal
-    group=staff
-    
-    # sysadminctl -addUser ${user} -fullName ${user} -shell /bin/bash -password ${password} -home /Users/${user}
-    sysadminctl -addUser ${user} -fullName ${user} -shell /bin/bash -home /Users/${user}
-    mkdir -p /Users/${user}
-    chown ${user}:${group} /Users/${user}
-    dscl . -append /Groups/admin GroupMembership ${user}
-    sshdir=/Users/${user}/.ssh
-    # pubkey1="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCH0oawPzIylSjdu/fpyDD2i2stkqe52bFmLT8+MeiTAp5WI8BwlbeeiiZkneEHhLW7bGMKZ50rQONjiudWCFibb4zM2pUQTFP91BuzUG7MjFf179UlvRMUiNSYkKSSB4q0QZ8+2Vjj5lXzYxM5FjZ9FdA1ioI5l8TK8rLlf/F1TKKDfjA/YMk7769BVYndDilSidaDEvRVxQM8Z5RBUnSnDFQwEaVOuVaHIki0ZPVecwyE96e2HaFDRjNlMUZbSgHrdwkjbIugaUfiWFANBA5eIOka19CSLV5aY1tNeawoUvIBsRXjUleFJE+EIL0iGcuTcLXvAqh5UwFdMkkwUfhH drone-runner"
-    if [ ! -f /etc/sudoers.d/${user} ]; then
-        sudo echo "$user ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/$user
-    fi
-    mkdir -p $sshdir
-    echo "$pubkey1" > $sshdir/authorized_keys
-    chmod -R 700 $sshdir
-    chown -R $user:$group $sshdir
+user=cppal
+group=staff
+
+# sysadminctl -addUser ${user} -fullName ${user} -shell /bin/bash -password ${password} -home /Users/${user}
+sysadminctl -addUser ${user} -fullName ${user} -shell /bin/bash -home /Users/${user}
+mkdir -p /Users/${user}
+chown ${user}:${group} /Users/${user}
+dscl . -append /Groups/admin GroupMembership ${user}
+sshdir=/Users/${user}/.ssh
+# pubkey1="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCH0oawPzIylSjdu/fpyDD2i2stkqe52bFmLT8+MeiTAp5WI8BwlbeeiiZkneEHhLW7bGMKZ50rQONjiudWCFibb4zM2pUQTFP91BuzUG7MjFf179UlvRMUiNSYkKSSB4q0QZ8+2Vjj5lXzYxM5FjZ9FdA1ioI5l8TK8rLlf/F1TKKDfjA/YMk7769BVYndDilSidaDEvRVxQM8Z5RBUnSnDFQwEaVOuVaHIki0ZPVecwyE96e2HaFDRjNlMUZbSgHrdwkjbIugaUfiWFANBA5eIOka19CSLV5aY1tNeawoUvIBsRXjUleFJE+EIL0iGcuTcLXvAqh5UwFdMkkwUfhH drone-runner"
+if [ ! -f /etc/sudoers.d/${user} ]; then
+    sudo echo "$user ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/$user
 fi
+mkdir -p $sshdir
+echo "$pubkey1" > $sshdir/authorized_keys
+chmod -R 700 $sshdir
+chown -R $user:$group $sshdir
 
 #####
 
@@ -100,7 +98,7 @@ fi
 
 # Brew recommendation:
 shell_initialization_file=/Users/administrator/.profile
-if grep "brew" ${shell_initialization_file};then
+if [ grep "brew" ${shell_initialization_file} ];then
     echo "brew already in startup"
 else
     echo "adding brew to startup"
@@ -133,7 +131,7 @@ if [[ "$(uname -p)" =~ "arm" ]]; then
     ln -s /opt/homebrew/opt/openssl /usr/local/opt/openssl || true
 else
     opensslpackage=$(brew list | grep openssl | tail -n 1)
-    ln -s "/usr/local/opt/$opensslpackage" /usr/local/opt/openssl || true
+    ln -s /usr/local/opt/$opensslpackage /usr/local/opt/openssl || true
 fi
 
 expect_commands='
@@ -154,7 +152,7 @@ expect eof
 
 if [[ $(sw_vers -productVersion) =~ ^14 ]] ; then
 
-    xcodeversions="14.2.0 14.3.0 14.3.1 15.0.0 15.0.1 15.1.0 15.2.0 15.3.0 15.4.0 16.0.0 16.1.0 16.2.0"
+    xcodeversions="14.2.0 14.3.0 14.3.1 15.0.0 15.0.1 15.1.0 15.2.0 15.3.0 15.4.0"
     gccversion="13"
     pythonversion="3.11"
     brew install python
@@ -184,13 +182,13 @@ if [[ $(sw_vers -productVersion) =~ ^14 ]] ; then
 #    fi
 
     for xcodeversion in $xcodeversions; do
-        if [ ! -d "/Applications/Xcode-$xcodeversion.app" ]; then
-            xcodes install --no-superuser "$xcodeversion"
+        if [ ! -d /Applications/Xcode-$xcodeversion.app ]; then
+            xcodes install --no-superuser $xcodeversion
         else
             echo "Directory /Applications/Xcode-$xcodeversion.app already exists."
         fi
         # and then check the result
-        if [ ! -d "/Applications/Xcode-$xcodeversion.app" ]; then
+        if [ ! -d /Applications/Xcode-$xcodeversion.app ]; then
             echo "Failed to install /Applications/Xcode-$xcodeversion.app"
             exit 1
         fi
@@ -221,4 +219,5 @@ sudo gem install asciidoctor-pdf --no-document
 sudo gem install coveralls-lcov --no-document
 sudo gem install asciidoctor --no-document
 sudo gem install coderay --no-document
+
 
