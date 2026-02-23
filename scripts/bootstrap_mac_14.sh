@@ -201,6 +201,8 @@ if [[ $(sw_vers -productVersion) =~ ^14 ]] ; then
     if [ -d /Library/Developer/CommandLineTools ]; then
         sudo mv /Library/Developer/CommandLineTools /Library/Developer/CommandLineTools.bck
     fi
+    sudo xcode-select -switch /Applications/Xcode-16.2.0.app/Contents/Developer
+    sudo xcodebuild -license accept
     sudo xcode-select -switch /Applications/Xcode-15.0.0.app/Contents/Developer
     sudo xcodebuild -license accept
     # sudo xcode-select -switch /Applications/Xcode-14.2.0.app/Contents/Developer
