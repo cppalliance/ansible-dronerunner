@@ -1,4 +1,8 @@
 ---
+
+# Call this tasks file for FreeBSD-13
+# It's not hooked into the main tasks file yet.
+
 - name: Install required packages
   ansible.builtin.package:
     name: "{{ dronerunner_packages }}"
@@ -20,14 +24,13 @@
     group: wheel
     state: link
 
-# As of FreeBSD-15 not required
-# - name: Create a symbolic link - python
-#   ansible.builtin.file:
-#     src: /usr/local/bin/python3.9
-#     dest: /usr/local/bin/python
-#     owner: root
-#     group: wheel
-#     state: link
+- name: Create a symbolic link - python
+  ansible.builtin.file:
+    src: /usr/local/bin/python3.9
+    dest: /usr/local/bin/python
+    owner: root
+    group: wheel
+    state: link
 
 - name: Create a symbolic link - g++ and clang++
   ansible.builtin.file:
@@ -37,19 +40,16 @@
     group: wheel
     state: link
   with_items:
-    - {src: g++14, dest: g++-14}
-    - {src: g++15, dest: g++-15}
+    - {src: g++8, dest: g++-8}
+    - {src: g++9, dest: g++-9}
+    - {src: g++10, dest: g++-10}
+    - {src: g++11, dest: g++-11}
+    - {src: clang++10, dest: clang++-10}
+    - {src: clang++11, dest: clang++-11}
     - {src: clang++12, dest: clang++-12}
     - {src: clang++13, dest: clang++-13}
     - {src: clang++14, dest: clang++-14}
     - {src: clang++15, dest: clang++-15}
-    - {src: clang++16, dest: clang++-16}
-    - {src: clang++17, dest: clang++-17}
-    - {src: clang++18, dest: clang++-18}
-    - {src: clang++19, dest: clang++-19}
-    - {src: clang++20, dest: clang++-20}
-    - {src: clang++21, dest: clang++-21}
-    - {src: clang++22, dest: clang++-22}
 
 - name: Set a hostname
   ansible.builtin.hostname:
