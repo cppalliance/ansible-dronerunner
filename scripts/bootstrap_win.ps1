@@ -44,6 +44,7 @@ foreach ($keysfile in $keysfiles) {
 }
 
 Add-Content C:\ProgramData\ssh\sshd_config "PasswordAuthentication no"
+Add-Content C:\ProgramData\ssh\sshd_config "Subsystem sftp C:/Windows/System32/OpenSSH/sftp-server.exe"
 # Some images leave sshd on Manual start, so it disappears after the first reboot.
 Set-Service -Name sshd -StartupType Automatic
 Restart-Service -Name sshd
