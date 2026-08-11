@@ -34,8 +34,8 @@
     line: "{{ dronerunner_ruby_path }}"
     state: present
   when:
-    - ansible_distribution_version.split('.')[0] == 10
-    - ansible_distribution_version.split('.')[1] == 13
+    - ansible_facts['distribution_version'].split('.')[0] == 10
+    - ansible_facts['distribution_version'].split('.')[1] == 13
   become: false
 
 - name: Install xcode-install  # noqa no-changed-when command-instead-of-shell

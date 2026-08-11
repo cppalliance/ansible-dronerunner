@@ -44,6 +44,8 @@ foreach ($keysfile in $keysfiles) {
 }
 
 Add-Content C:\ProgramData\ssh\sshd_config "PasswordAuthentication no"
+# Some images leave sshd on Manual start, so it disappears after the first reboot.
+Set-Service -Name sshd -StartupType Automatic
 Restart-Service -Name sshd
 
 # create bootstrap2.ps1. Better, move this to ansible.

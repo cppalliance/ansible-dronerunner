@@ -85,7 +85,7 @@
 
 - name: Download dronerunner
   ansible.builtin.get_url:
-    url: https://github.com/drone-runners/drone-runner-exec/releases/latest/download/drone_runner_exec_darwin_{{ ansible_architecture }}.tar.gz
+    url: https://github.com/drone-runners/drone-runner-exec/releases/latest/download/drone_runner_exec_darwin_{{ ansible_facts['architecture'] }}.tar.gz
     dest: /tmp
     mode: '0660'
   when:
@@ -93,7 +93,7 @@
 
 - name: Extract archive  # noqa command-instead-of-module
   ansible.builtin.shell: |
-    tar -xvf /tmp/drone_runner_exec_darwin_{{ ansible_architecture }}.tar.gz
+    tar -xvf /tmp/drone_runner_exec_darwin_{{ ansible_facts['architecture'] }}.tar.gz
     mv drone-runner-exec /usr/local/bin/drone-runner-exec
   changed_when: true
   when:

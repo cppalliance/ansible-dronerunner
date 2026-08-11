@@ -37,7 +37,7 @@
   ansible.builtin.command:
     cmd: yum-config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
   when:
-    - ansible_distribution == "RedHat"
+    - ansible_facts['distribution'] == "RedHat"
   changed_when: false
 
 - name: Install required packages
