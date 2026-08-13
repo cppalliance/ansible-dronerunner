@@ -8,6 +8,7 @@
   failed_when: false
   when:
     - ansible_facts['distribution'] != 'MacOSX'
+    - ansible_facts['os_family'] != 'Windows'
 
 - name: Determine macos version
   ansible.builtin.set_fact:
@@ -20,6 +21,20 @@
   failed_when: false
   when:
     - ansible_facts['distribution'] == 'MacOSX'
+
+# ansible_facts['distribution'] is e.g. "Microsoft Windows Server 2025 Datacenter",
+# so the release year is the usable part.
+- name: Determine windows version
+  ansible.builtin.set_fact:
+    windows_version: "Windows-{{ ansible_facts['distribution'] | regex_search('[0-9]{4}') }}"
+  when:
+    - ansible_facts['os_family'] == 'Windows'
+
+- name: Include Distribution version specific variables for Windows
+  ansible.builtin.include_vars: "{{ windows_version }}.yml"
+  failed_when: false
+  when:
+    - ansible_facts['os_family'] == 'Windows'
 
 - name: Set facts based on defaults  # noqa var-naming
   ansible.builtin.set_fact:

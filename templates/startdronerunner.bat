@@ -17,4 +17,4 @@ docker run -d ^
   -p 3000:3000 ^
   --restart unless-stopped ^
   --name runner ^
-  drone/drone-runner-docker:1
+  {{ dronerunner_docker_image }}
