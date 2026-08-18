@@ -130,9 +130,11 @@
 
 # Note: images based on older windowsservercore releases (2015/2017/2019) will pull on
 # Server 2025 but can only run with Hyper-V isolation, not process isolation.
-- name: Pull images
-  ansible.windows.win_shell: |
-    docker pull cppalliance/dronevs2015:latest
-    docker pull cppalliance/dronevs2017:latest
-    docker pull cppalliance/dronevs2019:latest
-    docker pull cppalliance/dronevs2022:latest
+# 2026-08 it's somewhat dangerous to pull images during a transition period. Commenting the
+# whole thing out.
+# - name: Pull images
+#   ansible.windows.win_shell: |
+#     docker pull cppalliance/dronevs2015:latest
+#     docker pull cppalliance/dronevs2017:latest
+#     docker pull cppalliance/dronevs2019:latest
+#     docker pull cppalliance/dronevs2022:latest
