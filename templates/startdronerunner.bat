@@ -14,6 +14,9 @@ docker run -d ^
   -e DRONE_RUNNER_CLONE_IMAGE={{ dronerunner_clone_image }} ^
 {% endif %}
   -e DRONE_RUNNER_LABELS={{ dronerunner_labels }} ^
+  -e DRONE_RUNNER_HYPERV_IMAGES={{ dronerunner_drone_runner_hyperv_images }} ^
+  -e DRONE_RUNNER_HYPERV_MEMORY={{ dronerunner_drone_runner_hyperv_memory }} ^
+  -e DRONE_RUNNER_HYPERV_CPU_COUNT={{ dronerunner_drone_runner_hyperv_cpu_count }} ^
   -p 3000:3000 ^
   --restart unless-stopped ^
   --name runner ^

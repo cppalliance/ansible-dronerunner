@@ -9,6 +9,12 @@ dronerunner_drone_logs_trace: "false"
 dronerunner_docker_image: "drone/drone-runner-docker:1"
 dronerunner_drone_agent_arch: "amd64"
 
+# Hyper-V isolated containers (Windows). Override in group_vars,
+# for example dronerunner_drone_runner_hyperv_images: "cppalliance/dronevs2015"
+dronerunner_drone_runner_hyperv_images: ""
+dronerunner_drone_runner_hyperv_memory: 8589934592  # bytes (8 GB)
+dronerunner_drone_runner_hyperv_cpu_count: 2
+
 # Set per OS in vars directory instead
 # dronerunner_drone_runner_capacity:
 
