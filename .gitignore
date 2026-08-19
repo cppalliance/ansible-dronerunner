@@ -4,4 +4,4 @@
 .kitchen
 test.txt
 /.cache
-
+/tmp
