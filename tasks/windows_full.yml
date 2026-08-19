@@ -18,6 +18,21 @@
   ansible.windows.win_reboot:
   when: dockerwindowsfeature.reboot_required
 
+# Hyper-V enables running older container images with hyperv isolation
+# (see DRONE_RUNNER_HYPERV_IMAGES). The install fails harmlessly on hosts
+# without hardware virtualization (e.g. non-metal EC2 instances), so
+# errors are ignored.
+- name: Enable Hyper-V Feature  # noqa ignore-errors
+  ansible.windows.win_feature:
+    name: Hyper-V
+    state: present
+  register: hypervfeature
+  ignore_errors: true
+
+- name: Reboot server if Hyper-V Feature requires it
+  ansible.windows.win_reboot:
+  when: hypervfeature.reboot_required | default(false)
+
 - name: Download install-docker-ce.ps1
   ansible.windows.win_get_url:
     url: https://raw.githubusercontent.com/microsoft/Windows-Containers/Main/helpful_tools/Install-DockerCE/install-docker-ce.ps1

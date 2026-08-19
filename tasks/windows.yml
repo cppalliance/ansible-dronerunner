@@ -1,4 +1,19 @@
 ---
+# Hyper-V enables running older container images with hyperv isolation
+# (see DRONE_RUNNER_HYPERV_IMAGES). The install fails harmlessly on hosts
+# without hardware virtualization (e.g. non-metal EC2 instances), so
+# errors are ignored.
+- name: Enable Hyper-V Feature  # noqa ignore-errors
+  ansible.windows.win_feature:
+    name: Hyper-V
+    state: present
+  register: hypervfeature
+  ignore_errors: true
+
+- name: Reboot server if Hyper-V Feature requires it
+  ansible.windows.win_reboot:
+  when: hypervfeature.reboot_required | default(false)
+
 - name: Cron - determine number of server
   ansible.builtin.set_fact:
     drone_number_of_server: "{{ inventory_hostname_short | regex_search('(\\d+)$') }}"
