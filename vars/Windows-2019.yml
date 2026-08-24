@@ -1,0 +1,8 @@
+---
+# The upstream drone/git:latest Windows images were rebuilt in Jan 2023 on
+# PowerShell 7.3+, which passes the clone scripts' empty $FLAGS argument through
+# to git and breaks every fetch ("fatal: no path specified", then
+# "fatal: reference is not a tree" at checkout). cppalliance/git:win2019 is a
+# re-tagged push of the older, working drone/git image that win1/win2 had cached.
+# The default runner image from defaults/main.yml still works on Server 2019.
+dronerunner_clone_image: "cppalliance/git:win2019"
