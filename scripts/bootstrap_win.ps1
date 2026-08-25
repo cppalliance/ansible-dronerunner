@@ -35,6 +35,13 @@ if ($sshrule) {
 choco install -y vim
 choco install -y git
 
+# Add Git's Unix tools (bash, etc.) to PATH
+$gitBin = "${env:ProgramFiles}\Git\bin"
+if (Test-Path $gitBin) {
+    [Environment]::SetEnvironmentVariable("PATH", $env:PATH + ";$gitBin", [EnvironmentVariableTarget]::Machine)
+    $env:PATH += ";$gitBin"
+}
+
 foreach ($keysfile in $keysfiles) {
     New-Item -ItemType Directory -Force -Path (Split-Path $keysfile) | Out-Null
     Add-Content $keysfile $pubkey1
