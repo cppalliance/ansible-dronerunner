@@ -1,13 +1,20 @@
 
 @ECHO ON
 
-REM Drain and stop the drone runner. On the stop signal the runner immediately
-REM stops accepting new stages, then exits once running stages finish and
-REM report to the server; -t (seconds) is a ceiling, not a delay - an idle
-REM runner stops in seconds. NOTE: draining on Windows requires a runner image
-REM with a raised WaitToKillServiceTimeout registry value (see README-CPP.md in
-REM the drone-runner-docker fork); otherwise Windows kills the container about
-REM 5 seconds after the signal regardless of -t.
+REM Drain and stop the drone runner.
+REM
+REM Windows cannot do signal-based draining: on "docker stop" the container OS
+REM gives the entrypoint a hardcoded ~5 seconds regardless of -t, and the
+REM WaitToKillServiceTimeout registry value only affects services, not console
+REM apps like the runner (https://github.com/moby/moby/issues/25982; confirmed
+REM by testing on Windows Server 2025, 2026-08).
+REM
+REM Instead, wait until no drone build containers (label io.drone) are running,
+REM then stop the runner. CAVEAT: the runner still accepts new jobs while this
+REM waits, so on a busy server pause the drone queue first ("drone queue pause",
+REM admin CLI) and resume it after maintenance. Ctrl+C aborts the wait.
 REM Restart later with startdronerunner.bat (or docker start runner).
 
-docker stop -t {{ dronerunner_stop_timeout }} runner
+powershell -NoProfile -Command "if (docker ps -q --filter 'label=io.drone') { Write-Host 'waiting for drone build containers to finish...' }; while (docker ps -q --filter 'label=io.drone') { Start-Sleep -Seconds 1 }"
+
+docker stop runner
