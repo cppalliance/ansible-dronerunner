@@ -68,6 +68,14 @@
     mode: "0755"
   notify: Start runner
 
+- name: Install stopdronerunner.sh script
+  ansible.builtin.template:
+    src: stopdronerunner.sh
+    dest: /opt/drone/scripts/stopdronerunner.sh
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Install clean.sh script
   ansible.builtin.template:
     src: clean.sh.j2

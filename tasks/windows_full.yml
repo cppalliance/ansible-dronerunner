@@ -116,6 +116,11 @@
     force: false
   notify: Start runner windows
 
+- name: Install stopdronerunner.bat script
+  ansible.windows.win_template:
+    src: stopdronerunner.bat
+    dest: "{{ dronerunner_scripts_dir_win }}\\stopdronerunner.bat"
+
 - name: Install clean.sh script
   ansible.builtin.template:
     src: clean.sh.j2
