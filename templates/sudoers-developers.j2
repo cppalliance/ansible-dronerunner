@@ -1,0 +1,23 @@
+# Managed by ansible (ansible-dronerunner role). Do not edit on the host.
+#
+# Members of the "{{ dronerunner_developers_group }}" group may control the
+# drone runner and manage packages. They need NO read access to /opt/drone:
+# sudo executes the target as root, and root does the path traversal and
+# reading, so the directory can be mode 0700 root:root and these commands
+# still work.
+#
+# A command listed without arguments matches ANY arguments (-y, --help, etc).
+# NOTE: unrestricted apt/apt-get is effectively full root (package installs
+# run arbitrary maintainer scripts as root). Acceptable for this group.
+#
+# Show a custom message at the password prompt. The developers group never
+# hits a prompt for its NOPASSWD commands, so in practice this appears when
+# someone tries a command they are NOT allowed (e.g. "sudo su -"), just before
+# the denial. NOTE: lecture is a global Defaults setting - it affects every
+# user who is prompted for a sudo password on this host, not only developers.
+Defaults lecture = always
+Defaults lecture_file = /etc/sudo_lecture
+%{{ dronerunner_developers_group }} ALL=(root) NOPASSWD: {{ dronerunner_scripts_dir }}/startdronerunner.sh
+%{{ dronerunner_developers_group }} ALL=(root) NOPASSWD: {{ dronerunner_scripts_dir }}/stopdronerunner.sh
+%{{ dronerunner_developers_group }} ALL=(root) NOPASSWD: /usr/bin/apt
+%{{ dronerunner_developers_group }} ALL=(root) NOPASSWD: /usr/bin/apt-get

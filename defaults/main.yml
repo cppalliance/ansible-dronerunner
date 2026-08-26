@@ -14,6 +14,10 @@ dronerunner_drone_agent_arch: "amd64"
 # Windows cannot drain via stop timeout (see stopdronerunner.bat).
 dronerunner_stop_timeout: 10800
 
+# Group allowed (via /etc/sudoers.d/drone-developers) to run the start/stop
+# runner scripts and apt/apt-get with sudo. Linux only.
+dronerunner_developers_group: developers
+
 
 # Hyper-V isolated containers (Windows). Override in group_vars,
 # for example dronerunner_drone_runner_hyperv_images: "cppalliance/dronevs2015"
