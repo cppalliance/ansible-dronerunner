@@ -9,6 +9,17 @@ dronerunner_drone_logs_trace: "false"
 dronerunner_docker_image: "drone/drone-runner-docker:1"
 dronerunner_drone_agent_arch: "amd64"
 
+# Environment variables injected into every pipeline step (DRONE_RUNNER_ENVIRON),
+# as comma-separated key:value pairs.
+#
+# B2_JOBS caps boost build parallelism. Without it, boost-ci computes jobs from
+# "grep -c processor /proc/cpuinfo", which is NOT namespaced in a container, so
+# every step on a 172-core host builds with -j173. Multiplied by the runner
+# capacity that exhausts RAM and takes the machine down. Note cpu quota/cpuset
+# do not help: boost-ci reads /proc/cpuinfo, ignoring cgroups and affinity.
+# Set to "" to inject nothing.
+dronerunner_environ: "B2_JOBS:8"
+
 # Grace period in seconds used by stopdronerunner.sh (docker stop -t): how long
 # to wait for running jobs to finish before force-killing the runner. Linux only;
 # Windows cannot drain via stop timeout (see stopdronerunner.bat).

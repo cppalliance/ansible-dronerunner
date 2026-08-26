@@ -13,6 +13,9 @@ docker run -d ^
 {% if dronerunner_clone_image is defined %}
   -e DRONE_RUNNER_CLONE_IMAGE={{ dronerunner_clone_image }} ^
 {% endif %}
+{% if dronerunner_environ %}
+  -e DRONE_RUNNER_ENVIRON={{ dronerunner_environ }} ^
+{% endif %}
   -e DRONE_RUNNER_LABELS={{ dronerunner_labels }} ^
   -e DRONE_RUNNER_HYPERV_IMAGES={{ dronerunner_hyperv_images }} ^
   -e DRONE_RUNNER_HYPERV_MEMORY={{ dronerunner_hyperv_memory }} ^
