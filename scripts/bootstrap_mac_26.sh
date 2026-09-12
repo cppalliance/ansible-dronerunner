@@ -13,6 +13,9 @@
 #
 # Enable ssh to have more permissions:
 # System Preferences -> Sharing , Remote Login, check the box Allow full disk access for remote users
+# 
+# Pre-Ventura it was System Preferences > Sharing > Remote Login, checkbox visible directly.
+# Ventura and later moved it to System Settings > General > Sharing, and critically it's now only visible after clicking the small info button next to Remote Login.
 #
 # Set these variable before proceeding:
 : '
