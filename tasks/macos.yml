@@ -12,7 +12,7 @@
 - name: Install brew
   ansible.builtin.command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
   changed_when: true
-  when: does_brew_exist.rc
+  when: does_brew_exist.rc != 0
 
 - name: Set hostname
   ansible.builtin.shell: |
@@ -68,7 +68,7 @@
     # softwareupdate -i -a --restart
     softwareupdate -i -a
   args:
-    creates: /Users/drone/.ansible/installed_initial_mac_software_updates
+    creates: /Users/{{ dronerunner_user }}/.ansible/installed_initial_mac_software_updates
   notify: Reboot mac
 
 - name: Check for dronerunner
