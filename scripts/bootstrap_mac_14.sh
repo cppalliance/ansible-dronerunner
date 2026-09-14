@@ -1,6 +1,10 @@
 #!/bin/bash
 
+set -xe
+
 # Version of script for MacOS 14
+
+# Run as administrator
 
 # Purpose:
 # - Sets up ssh and sudo. Although, that might already have been done.
@@ -53,21 +57,21 @@ chown -R $user:$group $sshdir
 if true ; then
     user=cppal
     group=staff
-    
+
     # sysadminctl -addUser ${user} -fullName ${user} -shell /bin/bash -password ${password} -home /Users/${user}
-    sysadminctl -addUser ${user} -fullName ${user} -shell /bin/bash -home /Users/${user}
-    mkdir -p /Users/${user}
-    chown ${user}:${group} /Users/${user}
-    dscl . -append /Groups/admin GroupMembership ${user}
+    sudo sysadminctl -addUser ${user} -fullName ${user} -shell /bin/bash -home /Users/${user}
+    sudo mkdir -p /Users/${user}
+    sudo chown ${user}:${group} /Users/${user}
+    sudo dscl . -append /Groups/admin GroupMembership ${user}
     sshdir=/Users/${user}/.ssh
     # pubkey1="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCH0oawPzIylSjdu/fpyDD2i2stkqe52bFmLT8+MeiTAp5WI8BwlbeeiiZkneEHhLW7bGMKZ50rQONjiudWCFibb4zM2pUQTFP91BuzUG7MjFf179UlvRMUiNSYkKSSB4q0QZ8+2Vjj5lXzYxM5FjZ9FdA1ioI5l8TK8rLlf/F1TKKDfjA/YMk7769BVYndDilSidaDEvRVxQM8Z5RBUnSnDFQwEaVOuVaHIki0ZPVecwyE96e2HaFDRjNlMUZbSgHrdwkjbIugaUfiWFANBA5eIOka19CSLV5aY1tNeawoUvIBsRXjUleFJE+EIL0iGcuTcLXvAqh5UwFdMkkwUfhH drone-runner"
     if [ ! -f /etc/sudoers.d/${user} ]; then
         sudo echo "$user ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/$user
     fi
-    mkdir -p $sshdir
-    echo "$pubkey1" > $sshdir/authorized_keys
-    chmod -R 700 $sshdir
-    chown -R $user:$group $sshdir
+    sudo mkdir -p $sshdir
+    sudo echo "$pubkey1" | sudo tee $sshdir/authorized_keys
+    sudo chmod -R 700 $sshdir
+    sudo chown -R $user:$group $sshdir
 fi
 
 #####
@@ -132,6 +136,7 @@ brew install ccache || true
 brew install pkg-config
 brew install openssl
 brew install gcc
+brew install aria2
 
 if [[ "$(uname -p)" =~ "arm" ]]; then
     sudo mkdir -p /usr/local/opt
@@ -181,7 +186,27 @@ if [[ $(sw_vers -productVersion) =~ ^14 ]] ; then
         ln -s /opt/homebrew/bin/gcov-$gccversion /usr/local/bin/ || true
     fi
 
-    brew install xcodesorg/made/xcodes
+    # Neither brew method installs xcodes on macOS 14:
+    # - "brew install xcodes" (homebrew-core) has "depends_on macos: :sequoia".
+    # - "brew install xcodesorg/made/xcodes" has a stale bottle root_url, so brew
+    #   falls back to a source build, and that build is universal (--arch arm64
+    #   --arch x86_64) which needs xcbuild from a full Xcode, not CommandLineTools.
+    # The released binary itself is universal and targets macOS 13, so install it
+    # directly. Check for a newer release at
+    # https://github.com/XcodesOrg/xcodes/releases
+    xcodesversion="2.1.0"
+    xcodeszipsha256="f1519afe934a513e85dd9b32fc872394becbbb6a41db15d9ac3926a09a891888"
+
+    if command -v xcodes ; then
+        echo "xcodes already installed"
+    else
+        curl -fLsS -o /tmp/xcodes.zip "https://github.com/XcodesOrg/xcodes/releases/download/${xcodesversion}/xcodes.zip"
+        echo "${xcodeszipsha256}  /tmp/xcodes.zip" | shasum -a 256 -c -
+        rm -rf /tmp/xcodesunzip
+        unzip -q -d /tmp/xcodesunzip /tmp/xcodes.zip
+        sudo install -m 755 /tmp/xcodesunzip/xcodes /usr/local/bin/xcodes
+    fi
+    xcodes version
 
     # fastlane per se is obsolete.
     # A very similar expect script might be made to work with xcodes because it follows a similar set of steps.

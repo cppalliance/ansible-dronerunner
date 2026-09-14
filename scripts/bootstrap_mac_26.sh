@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# Version of script for MacOS 14
+set -xe
+
+# Run as administrator
 
 # Purpose:
 # - Sets up ssh and sudo. Although, that might already have been done.
@@ -134,6 +136,7 @@ brew install ccache || true
 brew install pkg-config
 brew install openssl
 brew install gcc
+brew install aria2
 
 if [[ "$(uname -p)" =~ "arm" ]]; then
     sudo mkdir -p /usr/local/opt

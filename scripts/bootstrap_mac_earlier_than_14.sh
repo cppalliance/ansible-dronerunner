@@ -12,15 +12,23 @@
 # Enable ssh to have more permissions:
 # System Preferences -> Sharing , Remote Login, check the box Allow full disk access for remote users
 #
-# Set these variable before proceeding:
+# Set these variable before proceeding.
+#
+# Either point at a mirror holding the Xcode archives (recommended for a fleet,
+# and it needs no Apple credentials on the machine):
 : '
-export XCODE_INSTALL_USER=
-export XCODE_INSTALL_PASSWORD=
-or
-export FASTLANE_USER=
-export FASTLANE_PASSWORD=
-
+export XCODE_MIRROR=https://example.com/xcode
 '
+# or supply an Apple developer session cookie to download from Apple directly.
+# Log in at https://developer.apple.com/download/all/ in a browser on any
+# machine, then copy the value of the "myacinfo" cookie:
+: '
+export ADC_COOKIE="myacinfo=<value>"
+'
+# Apple's login (SRP plus 2FA) is the one part not worth reimplementing here,
+# which is why the cookie is obtained elsewhere. Everything after it is a
+# cookie-authenticated GET. The cookie is good for hours, not weeks, so for a
+# long run of versions prefer XCODE_MIRROR.
 
 # to test:
 # to test:
@@ -50,10 +58,10 @@ echo "$pubkey1" > $sshdir/authorized_keys
 chmod -R 700 $sshdir
 chown -R $user:$group $sshdir
 
-if [ -z "$FASTLANE_USER" ] || [ -z "FASTLANE_PASSWORD" ]; then
-  echo "Set both FASTLANE_USER and FASTLANE_PASSWORD:
-export FASTLANE_USER=
-export FASTLANE_PASSWORD=
+if [ -z "$XCODE_MIRROR" ] && [ -z "$ADC_COOKIE" ]; then
+  echo "Set either XCODE_MIRROR or ADC_COOKIE:
+export XCODE_MIRROR=https://example.com/xcode
+export ADC_COOKIE=\"myacinfo=...\"
 "
 exit 1
 fi
@@ -95,6 +103,7 @@ brew install ccache || true
 brew install pkg-config
 brew install openssl
 brew install gcc
+brew install aria2
 
 if [[ "$(uname -p)" =~ "arm" ]]; then
     sudo mkdir -p /usr/local/opt
@@ -108,20 +117,99 @@ else
     ln -s /usr/local/opt/$opensslpackage /usr/local/opt/openssl || true
 fi
 
-expect_commands='
-set timeout -1
-spawn fastlane spaceauth
-expect "Please enter the 6 digit code:"
-send -- "sms\n"
-expect "Please select a trusted phone number"
-send -- "1\n"
-expect "Please enter the 6 digit code"
-expect_user -re "(.*)\n"
-send "$expect_out(1,string)\r"
-expect "Should fastlane copy the cookie into your clipboard"
-send -- "no\n"
-expect eof
-'
+# Xcode installation.
+#
+# These OS versions can run neither xcodes (the 2.x binary requires macOS 13)
+# nor the xcode-install gem's "xcversion" (abandoned, and its Apple login no
+# longer works). Downloading and expanding the archive by hand is all those
+# tools were doing for us, so do that instead.
+
+xcode_url() {
+    # Apple lays the archives out predictably:
+    #   Developer_Tools/Xcode_<version>/Xcode_<version>.<xip or dmg>
+    # with any trailing ".0" dropped, and .dmg for Xcode 7 and earlier. This
+    # matches every release from 6.2 through 16.x listed at
+    # https://xcodereleases.com/data.json , which is where to look if a version
+    # ever deviates. Xcode 26 does deviate: those filenames carry an extra
+    # _Universal or _Apple_silicon suffix.
+    local version="${1%.0}"
+    local extension="xip"
+    case "$version" in
+        [1-7] | [1-7].* ) extension="dmg" ;;
+    esac
+    echo "https://download.developer.apple.com/Developer_Tools/Xcode_${version}/Xcode_${version}.${extension}"
+}
+
+xcode_download() {
+    local url="$1" dest="$2"
+    local path jar cookie
+
+    if [ -n "$XCODE_MIRROR" ]; then
+        curl -fL --retry 3 -C - -o "$dest" "${XCODE_MIRROR%/}/$(basename "$url")"
+        return
+    fi
+
+    # Apple hands out a short-lived ADCDownloadAuth cookie per download path,
+    # in exchange for the session cookie. Both are then sent to the CDN.
+    path="${url#https://download.developer.apple.com}"
+    jar=$(mktemp /tmp/adc-cookies.XXXXXX)
+    set +x
+    curl -fsS -o /dev/null -c "$jar" -H "Cookie: $ADC_COOKIE" \
+        "https://developerservices2.apple.com/services/download?path=${path}"
+    cookie="$ADC_COOKIE; ADCDownloadAuth=$(awk '$6 == "ADCDownloadAuth" { print $7 }' "$jar" | tail -n 1)"
+    if command -v aria2c > /dev/null ; then
+        aria2c -x 8 -s 8 --continue --header "Cookie: $cookie" \
+            -d "$(dirname "$dest")" -o "$(basename "$dest")" "$url"
+    else
+        curl -fL --retry 3 -C - -H "Cookie: $cookie" -o "$dest" "$url"
+    fi
+    set -x
+    rm -f "$jar"
+}
+
+xcode_install() {
+    local version="$1"
+    local url archive workdir app mountpoint
+
+    url=$(xcode_url "$version")
+
+    # Needs room for the archive plus the expanded app, roughly 25GB for
+    # recent versions.
+    workdir=$(mktemp -d /tmp/xcode-install.XXXXXX)
+    archive="$workdir/$(basename "$url")"
+    xcode_download "$url" "$archive"
+
+    # An expired cookie or a wrong version number redirects to an HTML page,
+    # which curl saves as if it were the archive. Xcode .xip files are signed
+    # xar archives, so check for the xar magic before spending time on it.
+    if [ "${archive##*.}" = "xip" ] && [ "$(head -c 4 "$archive")" != "xar!" ]; then
+        echo "$archive is not an Xcode archive. Refresh ADC_COOKIE and retry."
+        return 1
+    fi
+
+    case "$archive" in
+        *.xip)
+            (cd "$workdir" && xip --expand "$archive")
+            ;;
+        *.dmg)
+            # Xcode 7.3.1 and earlier shipped as disk images.
+            mountpoint="$workdir/mnt"
+            hdiutil attach -nobrowse -quiet -mountpoint "$mountpoint" "$archive"
+            cp -R "$mountpoint"/*.app "$workdir"/
+            hdiutil detach -quiet "$mountpoint"
+            ;;
+    esac
+
+    app=$(find "$workdir" -maxdepth 1 -name '*.app' | head -n 1)
+    if [ -z "$app" ]; then
+        echo "No .app found after expanding $archive"
+        return 1
+    fi
+
+    sudo mv "$app" "/Applications/Xcode-$version.app"
+    sudo xattr -dr com.apple.quarantine "/Applications/Xcode-$version.app" || true
+    rm -rf "$workdir"
+}
 
 # if [[ "$(sw_vers -productVersion)" =~ "12.4" ]] ; then
 if [[ $(sw_vers -productVersion) =~ ^12 ]] || [[ $(sw_vers -productVersion) =~ ^13 ]] ; then
@@ -143,19 +231,14 @@ if [[ $(sw_vers -productVersion) =~ ^12 ]] || [[ $(sw_vers -productVersion) =~ ^
         ln -s /opt/homebrew/bin/gcov-$gccversion /usr/local/bin/
     fi
 
-    sudo xcrun gem install xcode-install --no-document
-
-    # Trigger authentication with Apple.
-    # Another solution is to skip this and attempt to install Xcode. It will prompt for auth later.
-    if [ ! -d ~/.fastlane ]; then
-    echo "\n\n Now running 'fastlane spaceauth' to authenticate with Apple. Check your sms messages. \n\n"
-expect -c "${expect_commands//
-/;}"
-    fi
+    # xcode-install and its fastlane authentication are no longer used.
+    # xcode_install below downloads from XCODE_MIRROR or from Apple with
+    # ADC_COOKIE instead.
+    # sudo xcrun gem install xcode-install --no-document
 
     for xcodeversion in $xcodeversions; do
         if [ ! -d /Applications/Xcode-$xcodeversion.app ]; then
-            xcversion install $xcodeversion --no-switch
+            xcode_install $xcodeversion
         else
             echo "Directory /Applications/Xcode-$xcodeversion.app already exists."
         fi
@@ -186,18 +269,10 @@ fi
 
 if [[ "$(sw_vers -productVersion)" =~ "10.15" ]] ; then
     xcodeversions="10 10.1 10.2 10.3 11 11.1 11.2 11.2.1 11.3 11.4 11.5 11.6 11.7 12 12.1 12.2 12.3 12.4"
-    sudo xcrun gem install xcode-install --no-document
-    # 2022-03-07 latest experiment, will this happen automatically if needed?
-    # That is, will it prompt you for a login and 2FA.
-    # if [ ! -d /Users/administrator/.fastlane/spaceship ]; then
-    #     echo "Configuring auth"
-    #     read -p "Apple user name:" appleuser
-    #     fastlane spaceauth -u $appleuser
-    #     read -p "Do you wish to continue?" yn
-    # fi
+    # sudo xcrun gem install xcode-install --no-document
     for xcodeversion in $xcodeversions; do
         if [ ! -d /Applications/Xcode-$xcodeversion.app ]; then
-            xcversion install $xcodeversion --no-switch
+            xcode_install $xcodeversion
         else
             echo "Directory /Applications/Xcode-$xcodeversion.app already exists."
         fi
@@ -232,19 +307,10 @@ if [[ "$(sw_vers -productVersion)" =~ "10.13" ]] ; then
         echo 'export PATH=/usr/local/lib/ruby/gems/2.7.0/bin:/usr/local/opt/ruby@2.7/bin:$PATH' >> ~/.profile
         export PATH=/usr/local/lib/ruby/gems/2.7.0/bin:/usr/local/opt/ruby@2.7/bin:$PATH
     fi
-    sudo xcrun gem install xcode-install --no-document
-    # 2022-03-07 latest experiment, will this happen automatically if needed?
-    # That is, will it prompt you for a login and 2FA.
-    # if [ ! -d /Users/administrator/.fastlane/spaceship ]; then
-    #     # 2022-03, still experimenting in this section.
-    #     echo "Configuring auth"
-    #     read -p "Apple user name:" appleuser
-    #     fastlane spaceauth -u $appleuser
-    #     read -p "Do you wish to continue?" yn
-    # fi
+    # sudo xcrun gem install xcode-install --no-document
     for xcodeversion in $xcodeversions; do
         if [ ! -d /Applications/Xcode-$xcodeversion.app ]; then
-            xcversion install $xcodeversion --no-switch
+            xcode_install $xcodeversion
         else
             echo "Directory /Applications/Xcode-$xcodeversion.app already exists."
         fi
