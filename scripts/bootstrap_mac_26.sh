@@ -24,11 +24,11 @@ export XCODES_PASSWORD=
 '
 
 # to test:
-if ! /bin/ls "/Library/Application Support/com.apple.TCC" >/dev/null 2>&1; then
-  echo "FDA for Remote Login is NOT enabled" >&2
-  exit 1
+if head -c1 "/Library/Application Support/com.apple.TCC/TCC.db" >/dev/null 2>&1; then
+  echo "FDA enabled"
 else
-  echo "FDA is ok. Proceeding."
+  echo "FDA NOT enabled. Full disk access for remote login." >&2
+  exit 1
 fi
 
 # Common Ansible section:
