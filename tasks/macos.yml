@@ -60,16 +60,104 @@
     owner: administrator
     group: admin
 
+# "softwareupdate -i -a" installs everything Apple offers here, and that
+# includes the next major release, so the box upgrades itself to macOS 27.
+# There is no "minor updates only" flag: --recommended does not help, because
+# major releases are marked Recommended: YES the same as point releases. So
+# match each offered label against the major version that is running, and drop
+# the macOS ones that do not belong to it.
+- name: List software updates for the running major version
+  ansible.builtin.shell: |
+    set -o pipefail
+    major=$(sw_vers -productVersion | cut -d. -f1)
+    softwareupdate --list 2>/dev/null | awk -v major="$major" '
+        /Label:/ {
+            sub(/^[[:space:]]*[*-][[:space:]]*Label:[[:space:]]*/, "")
+            label = $0
+            next
+        }
+        label != "" && /Title:/ {
+            title = ""
+            version = ""
+            fields = split($0, field, ",")
+            for (i = 1; i <= fields; i++) {
+                if (field[i] ~ /Title:/) {
+                    sub(/.*Title:[[:space:]]*/, "", field[i])
+                    title = field[i]
+                }
+                if (field[i] ~ /Version:/) {
+                    sub(/.*Version:[[:space:]]*/, "", field[i])
+                    version = field[i]
+                }
+            }
+            split(version, v, ".")
+            if (title !~ /^macOS/ || v[1] == major) {
+                print label
+            }
+            label = ""
+        }' || true
+  args:
+    executable: /bin/bash
+  register: macos_minor_updates
+  changed_when: false
+
+# Apple silicon will not install a system update without the credentials of a
+# volume owner, which is why an unattended run downloads the whole thing and
+# then reports "Failed to authenticate". Set dronerunner_macos_update_user and
+# dronerunner_macos_update_password (from the vault) to a secure-token admin to
+# install them from here. Left empty, updates that need no authorization still
+# install and the rest are left to be applied by hand.
 - name: Install updates
   ansible.builtin.shell: |
     set -e
-    mkdir -p /Users/{{ dronerunner_user }}/.ansible
-    touch /Users/{{ dronerunner_user }}/.ansible/installed_initial_mac_software_updates
-    # softwareupdate -i -a --restart
-    softwareupdate -i -a
+    # Only macOS system updates need a volume owner, and only on Apple silicon.
+    needs_owner=no
+    case "$su_label" in
+        "macOS "*)
+            if [ "$(uname -m)" = "arm64" ]; then
+                needs_owner=yes
+            fi
+            ;;
+    esac
+
+    if [ "$needs_owner" = "no" ]; then
+        softwareupdate --install "$su_label"
+    elif [ -n "$su_user" ]; then
+        printf '%s\n' "$su_password" | softwareupdate --install "$su_label" --user "$su_user" --stdinpass
+    else
+        echo "Skipping $su_label: set dronerunner_macos_update_user and dronerunner_macos_update_password to install it unattended."
+    fi
   args:
+    executable: /bin/bash
     creates: /Users/{{ dronerunner_user }}/.ansible/installed_initial_mac_software_updates
+  environment:
+    su_user: "{{ dronerunner_macos_update_user }}"
+    su_password: "{{ dronerunner_macos_update_password }}"
+    su_label: "{{ item }}"
+  loop: "{{ macos_minor_updates.stdout_lines | default([]) }}"
+  changed_when: true
   notify: Reboot mac
+
+- name: Create ansible state directory
+  ansible.builtin.file:
+    path: /Users/{{ dronerunner_user }}/.ansible
+    state: directory
+    owner: "{{ dronerunner_user }}"
+    group: staff
+    mode: "0755"
+
+# Written only once the installs above have succeeded. The previous version of
+# this task touched the marker first, so a failed update still counted as done
+# and was never retried.
+- name: Record that the initial software updates ran
+  ansible.builtin.file:
+    path: /Users/{{ dronerunner_user }}/.ansible/installed_initial_mac_software_updates
+    state: touch
+    owner: "{{ dronerunner_user }}"
+    group: staff
+    mode: "0644"
+    modification_time: preserve
+    access_time: preserve
 
 - name: Check for dronerunner
   ansible.builtin.stat:

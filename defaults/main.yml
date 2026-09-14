@@ -45,6 +45,13 @@ dronerunner_user_fullname: Drone
 
 # set this in vault
 # dronerunner_password:
+
+# Apple silicon requires a volume owner (a secure-token admin) to authorize a
+# macOS system update. Without one, softwareupdate downloads the update and
+# then fails with "Failed to authenticate". Set these, the password in the
+# vault, to install system updates unattended. Leave empty to skip them.
+dronerunner_macos_update_user: ""
+dronerunner_macos_update_password: ""
 swap_configure: true   # manage the swap or not
 swap_enable: true
 swap_file_path: /swapfile
