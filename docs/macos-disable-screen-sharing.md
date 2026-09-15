@@ -67,11 +67,12 @@ Or just re-check the box in System Preferences → Sharing.
 ## Option 2: leave the service running and block the port
 
 Only if you would rather not change the service state. This uses pf, the packet
-filter already built into macOS, through the anchor mechanism that the stock
-`/etc/pf.conf` points customizations at. It is more moving parts than Option 1,
-which is why Option 1 is preferred.
+filter already built into macOS. It is more moving parts than Option 1, which
+is why Option 1 is preferred.
 
-Create `/etc/pf.anchors/no-screen-sharing`:
+Append two rules to `/etc/pf.conf`. They go at the end, after the existing
+`com.apple` anchors, because pf requires filter rules to follow translation
+rules:
 
 ```
 # Keep loopback working, so a deliberate SSH tunnel still functions.
@@ -80,23 +81,14 @@ pass in quick on lo0 proto tcp from any to any port 5900
 block drop in quick proto tcp from any to any port 5900
 ```
 
-Append two lines to `/etc/pf.conf`. They go at the end, after the existing
-`com.apple` anchors, because pf requires filter rules to follow translation
-rules:
-
-```
-anchor "no-screen-sharing"
-load anchor "no-screen-sharing" from "/etc/pf.anchors/no-screen-sharing"
-```
-
-Load it now:
+Load them now:
 
 ```sh
 sudo pfctl -e -f /etc/pf.conf
 ```
 
 As the comments in the stock `/etc/pf.conf` note, pf is not enabled at boot on
-macOS, so this needs a launch daemon to come back after a reboot. Create
+macOS, so this also needs a launch daemon to come back after a reboot. Create
 `/Library/LaunchDaemons/com.no-screen-sharing.pf.plist`:
 
 ```xml
@@ -130,11 +122,11 @@ still loaded by `-f`.
 
 ### Reverting
 
-Remove the two lines from `/etc/pf.conf`, then:
+Remove the two rules from `/etc/pf.conf`, then:
 
 ```sh
 sudo launchctl unload -w /Library/LaunchDaemons/com.no-screen-sharing.pf.plist
-sudo rm /Library/LaunchDaemons/com.no-screen-sharing.pf.plist /etc/pf.anchors/no-screen-sharing
+sudo rm /Library/LaunchDaemons/com.no-screen-sharing.pf.plist
 sudo pfctl -f /etc/pf.conf
 ```
 
@@ -144,4 +136,4 @@ sudo pfctl -f /etc/pf.conf
   enabled instead, also uses port 3283, which is why the `kickstart` command
   above covers it.
 - SSH on port 22 is untouched, which is how we manage the machine.
-- Both options are reversible, and Option 1 is reversible without a reboot.
+- Both options are reversible immediately, without a reboot.
