@@ -23,6 +23,12 @@ This is the same change as unchecking **System Preferences → Sharing → Scree
 Sharing**; the command-line form simply does not need a GUI session. The first
 command records the state, the second stops the currently running instance.
 
+If the second command reports `Boot-out failed: 150: Operation not permitted
+while System Integrity Protection is engaged`, no action is needed. SIP
+declines to tear down some Apple daemons while they are running, but the first
+command has already taken effect, so the service does not come back after the
+next reboot.
+
 It persists by itself. `launchctl disable` writes to launchd's own on-disk
 database, `/var/db/com.apple.xpc.launchd/disabled.plist`, not to any file under
 the read-only system volume, so the service stays off after a reboot with no
