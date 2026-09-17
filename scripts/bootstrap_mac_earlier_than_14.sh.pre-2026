@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -xe
-
 # Purpose:
 # - Sets up ssh and sudo. Although, that might already have been done.
 # - Installs multiple versions of Xcode.
@@ -14,16 +12,23 @@ set -xe
 # Enable ssh to have more permissions:
 # System Preferences -> Sharing , Remote Login, check the box Allow full disk access for remote users
 #
-# Nothing is downloaded from Apple here. Run scripts/downloader.sh on a macOS
-# 26 host, which can still authenticate, and copy the archives over first:
+# Set these variable before proceeding.
 #
-#     scp *.xip administrator@<this host>:/Applications/downloads/
-#
-# Set this only if they live somewhere other than /Applications/downloads, an
-# external disk say:
+# Either point at a mirror holding the Xcode archives (recommended for a fleet,
+# and it needs no Apple credentials on the machine):
 : '
-export XCODE_DOWNLOADS=/Volumes/xcode
+export XCODE_MIRROR=https://example.com/xcode
 '
+# or supply an Apple developer session cookie to download from Apple directly.
+# Log in at https://developer.apple.com/download/all/ in a browser on any
+# machine, then copy the value of the "myacinfo" cookie:
+: '
+export ADC_COOKIE="myacinfo=<value>"
+'
+# Apple's login (SRP plus 2FA) is the one part not worth reimplementing here,
+# which is why the cookie is obtained elsewhere. Everything after it is a
+# cookie-authenticated GET. The cookie is good for hours, not weeks, so for a
+# long run of versions prefer XCODE_MIRROR.
 
 # to test:
 # to test:
@@ -77,12 +82,10 @@ fi
 
 #####
 
-xcodearchives="${XCODE_DOWNLOADS:-/Applications/downloads}"
-
-if [ ! -d "$xcodearchives" ]; then
-  echo "No Xcode archives at $xcodearchives .
-Run scripts/downloader.sh on a macOS 26 host, copy the .xip files here, or set
-XCODE_DOWNLOADS to wherever they already are.
+if [ -z "$XCODE_MIRROR" ] && [ -z "$ADC_COOKIE" ]; then
+  echo "Set either XCODE_MIRROR or ADC_COOKIE:
+export XCODE_MIRROR=https://example.com/xcode
+export ADC_COOKIE=\"myacinfo=...\"
 "
 exit 1
 fi
@@ -117,98 +120,13 @@ fi
 brew install htop
 brew install wget
 brew install cmake
-# lcov comes from upstream rather than brew. These OS versions get no bottles
-# (Tier 3), so brew builds from source, and lcov's one build dependency is
-# sphinx-doc, needed purely to typeset man pages. Building sphinx means
-# creating a Python venv, which is where "brew install lcov" dies on macOS 12,
-# with an error Homebrew cannot even report: its forked-child error reporter
-# crashes marshalling a Pathname to JSON, so the real failure never prints.
-#
-# lcov is Perl scripts, hence its bottle being "cellar :any_skip_relocation",
-# so an upstream install needs no compiler, no Python and no brew at all.
-#
-# 1.16 rather than 2.x deliberately. Its install target has no doc
-# prerequisite, the tarball ships the man pages already built, and every
-# module it uses is core Perl, down to IO::Uncompress::Gunzip. 2.x needs
-# sphinx (its install target depends on the generated docs) and also
-# Capture::Tiny, which is not core Perl: the brew formula gets away with that
-# by relying on the system perl of a newer macOS to supply it.
-lcovversion="1.16"
-lcovsha256="987031ad5528c8a746d4b52b380bc1bffe412de1f2b9c2ba5224995668e3240b"
-
-if command -v lcov ; then
-    echo "lcov already installed"
-else
-    curl -fsSL -o /tmp/lcov.tar.gz "https://github.com/linux-test-project/lcov/releases/download/v${lcovversion}/lcov-${lcovversion}.tar.gz"
-    echo "${lcovsha256}  /tmp/lcov.tar.gz" | shasum -a 256 -c -
-    rm -rf /tmp/lcovsrc
-    mkdir -p /tmp/lcovsrc
-    tar -xzf /tmp/lcov.tar.gz -C /tmp/lcovsrc
-    # Rewrites the shebangs to /usr/bin/perl, so this does not depend on a brew
-    # perl being installed.
-    sudo make -C "/tmp/lcovsrc/lcov-${lcovversion}" install PREFIX=/usr/local
-fi
-lcov --version
-
+brew install lcov
 brew install valgrind || true
 brew install doxygen
 brew install ccache || true
 brew install pkg-config
 brew install openssl
-
-# gcc comes from a pinned formula in a local tap rather than "brew install gcc".
-#
-# Current gcc is 16.2.0 with no arm64_monterey bottle, so brew attempts a full
-# GCC bootstrap from source, and that fails in stage1 here. gcc@12 12.4.0 is
-# the last revision carrying real monterey and arm64_monterey bottles, so it
-# pours in seconds instead.
-#
-# Bottles for this configuration do still exist: any formula version that was
-# current while Homebrew supported Monterey was bottled then and the blob stays
-# on ghcr, which is why "make" pours a bottle in this same run while gcc does
-# not. (Only Monterey. That revision has no Catalina or High Sierra bottle, so
-# the 10.x branches below get no gcc from this.)
-#
-# Reaching one takes a tap of our own. Homebrew 7.0 rejects "brew install
-# <url>" outright, and the "brew version-install" it suggests instead runs
-# "brew extract", which strips the bottle block ("Remove bottle blocks, as they
-# won't work") and would therefore build from source too. A formula in our tap
-# keeps the block. None of this depends on the tap: root_url defaults to
-# $HOMEBREW_BOTTLE_DOMAIN, ghcr.io/v2/homebrew/core, and the blob path is
-# derived from the formula name, so the file has to keep the name gcc@12 to
-# resolve as gcc/12.
-#
-# 12 also happens to be what this script has always wanted: gccversion below
-# is "12" and the symlinks want gcc-12, whereas "brew install gcc" now yields
-# gcc-16.
-gcc12commit="fa3b9b2071819e5f9f548a08286a5e5840aa3e09"
-gcc12tap="cppalliance/pinned"
-
-if command -v gcc-12 ; then
-    echo "gcc-12 already installed"
-else
-    brew tap-new --no-git "$gcc12tap" || true
-    gcc12formula="$(brew --repo "$gcc12tap")/Formula/gcc@12.rb"
-    curl -fsSL -o "$gcc12formula" \
-        "https://raw.githubusercontent.com/Homebrew/homebrew-core/${gcc12commit}/Formula/g/gcc@12.rb"
-    # cxxstdlib_check has since been dropped from the formula DSL, and a
-    # formula that calls it no longer loads at all. It only ever applied to
-    # building from source.
-    sed -i '' '/cxxstdlib_check/d' "$gcc12formula"
-    # Expect "Pouring gcc@12--12.4.0.arm64_monterey.bottle.tar.gz". Note that
-    # the bottle is conditional on "pour_bottle? only_if: :clt_installed", so
-    # this has to run before the CommandLineTools directory is moved aside
-    # further down, or brew quietly builds from source instead. That build does
-    # work, 12.4.0 being a version Homebrew bottled on this OS, but it is an
-    # hour rather than a minute.
-    brew install "$gcc12tap/gcc@12"
-fi
-
-# That bottle was linked against isl 0.26 and this machine now has 0.28. isl
-# appears not to have changed soname in between, since brew never revved gcc@12
-# for it, but do not take that on faith: a stale libisl reference surfaces here.
-gcc-12 --version
-
+brew install gcc
 brew install aria2
 
 if [[ "$(uname -p)" =~ "arm" ]]; then
@@ -223,57 +141,75 @@ else
     ln -s /usr/local/opt/$opensslpackage /usr/local/opt/openssl || true
 fi
 
-# Xcode installation, from archives already sitting on this machine.
+# Xcode installation.
 #
-# These OS versions can run neither xcodes (the 2.x binary is built for macOS
-# 13, and 1.6.2, the last one that runs here, predates the Apple login changes
-# that 2.1.0 was released to fix) nor the xcode-install gem's "xcversion"
-# (abandoned, and its Apple login no longer works). Downloading is therefore
-# done elsewhere, by downloader.sh on a macOS 26 host.
-#
-# Installing is little more than expanding the archive: an Xcode.app is
-# self-contained and code-signed, and nothing registers it with the system.
-# What xcodes does beyond this, and what is still done per-machine further
-# down, is accept the license. It would also run "DevToolsSecurity -enable",
-# add staff to the _developer group, and run "xcodebuild -runFirstLaunch" to
-# install the bundled components, except that these hosts have always passed
-# --no-superuser and skipped all three.
+# These OS versions can run neither xcodes (the 2.x binary requires macOS 13)
+# nor the xcode-install gem's "xcversion" (abandoned, and its Apple login no
+# longer works). Downloading and expanding the archive by hand is all those
+# tools were doing for us, so do that instead.
 
-xcode_normalize_version() {
-    # 12.5 -> 12.5.0, because that is how xcodes names what it downloads.
-    case "$(echo "$1" | awk -F. '{print NF}')" in
-        1) echo "$1.0.0" ;;
-        2) echo "$1.0" ;;
-        *) echo "$1" ;;
+xcode_url() {
+    # Apple lays the archives out predictably:
+    #   Developer_Tools/Xcode_<version>/Xcode_<version>.<xip or dmg>
+    # with any trailing ".0" dropped, and .dmg for Xcode 7 and earlier. This
+    # matches every release from 6.2 through 16.x listed at
+    # https://xcodereleases.com/data.json , which is where to look if a version
+    # ever deviates. Xcode 26 does deviate: those filenames carry an extra
+    # _Universal or _Apple_silicon suffix.
+    local version="${1%.0}"
+    local extension="xip"
+    case "$version" in
+        [1-7] | [1-7].* ) extension="dmg" ;;
     esac
+    echo "https://download.developer.apple.com/Developer_Tools/Xcode_${version}/Xcode_${version}.${extension}"
 }
 
-xcode_archive() {
-    # Accepts either naming: xcodes writes Xcode-13.4.1+13F100.xip, while a
-    # browser download straight from Apple arrives as Xcode_13.4.1.xip.
-    local version="$1" normalized
-    normalized=$(xcode_normalize_version "$version")
-    ls -1 "$xcodearchives"/Xcode-"$normalized"+*.xip \
-          "$xcodearchives"/Xcode-"$normalized".xip \
-          "$xcodearchives"/Xcode_"$version".xip \
-          "$xcodearchives"/Xcode_"$version".dmg 2>/dev/null | head -n 1
+xcode_download() {
+    local url="$1" dest="$2"
+    local path jar cookie
+
+    if [ -n "$XCODE_MIRROR" ]; then
+        curl -fL --retry 3 -C - -o "$dest" "${XCODE_MIRROR%/}/$(basename "$url")"
+        return
+    fi
+
+    # Apple hands out a short-lived ADCDownloadAuth cookie per download path,
+    # in exchange for the session cookie. Both are then sent to the CDN.
+    path="${url#https://download.developer.apple.com}"
+    jar=$(mktemp /tmp/adc-cookies.XXXXXX)
+    set +x
+    curl -fsS -o /dev/null -c "$jar" -H "Cookie: $ADC_COOKIE" \
+        "https://developerservices2.apple.com/services/download?path=${path}"
+    cookie="$ADC_COOKIE; ADCDownloadAuth=$(awk '$6 == "ADCDownloadAuth" { print $7 }' "$jar" | tail -n 1)"
+    if command -v aria2c > /dev/null ; then
+        aria2c -x 8 -s 8 --continue --header "Cookie: $cookie" \
+            -d "$(dirname "$dest")" -o "$(basename "$dest")" "$url"
+    else
+        curl -fL --retry 3 -C - -H "Cookie: $cookie" -o "$dest" "$url"
+    fi
+    set -x
+    rm -f "$jar"
 }
 
 xcode_install() {
     local version="$1"
-    local archive workdir app mountpoint
+    local url archive workdir app mountpoint
 
-    archive=$(xcode_archive "$version")
-    if [ -z "$archive" ]; then
-        echo "No archive for Xcode $version in $xcodearchives"
+    url=$(xcode_url "$version")
+
+    # Needs room for the archive plus the expanded app, roughly 25GB for
+    # recent versions.
+    workdir=$(mktemp -d /tmp/xcode-install.XXXXXX)
+    archive="$workdir/$(basename "$url")"
+    xcode_download "$url" "$archive"
+
+    # An expired cookie or a wrong version number redirects to an HTML page,
+    # which curl saves as if it were the archive. Xcode .xip files are signed
+    # xar archives, so check for the xar magic before spending time on it.
+    if [ "${archive##*.}" = "xip" ] && [ "$(head -c 4 "$archive")" != "xar!" ]; then
+        echo "$archive is not an Xcode archive. Refresh ADC_COOKIE and retry."
         return 1
     fi
-
-    # Expanding beside the archive keeps the move below on one filesystem, and
-    # needs room for the app as well, roughly 25GB for the newer versions.
-    # "xip --expand" verifies the archive's signature, so a truncated or
-    # corrupted copy fails here rather than producing a broken Xcode.
-    workdir=$(mktemp -d "$xcodearchives/xcode-install.XXXXXX")
 
     case "$archive" in
         *.xip)
@@ -295,7 +231,6 @@ xcode_install() {
     fi
 
     sudo mv "$app" "/Applications/Xcode-$version.app"
-    # scp leaves no quarantine flag, but a browser download does.
     sudo xattr -dr com.apple.quarantine "/Applications/Xcode-$version.app" || true
     rm -rf "$workdir"
 }
@@ -321,8 +256,8 @@ if [[ $(sw_vers -productVersion) =~ ^12 ]] || [[ $(sw_vers -productVersion) =~ ^
     fi
 
     # xcode-install and its fastlane authentication are no longer used.
-    # xcode_install below expands an archive that downloader.sh already
-    # fetched on a macOS 26 host.
+    # xcode_install below downloads from XCODE_MIRROR or from Apple with
+    # ADC_COOKIE instead.
     # sudo xcrun gem install xcode-install --no-document
 
     for xcodeversion in $xcodeversions; do

@@ -44,8 +44,26 @@ for e.g. "Xcode 13.4.1", and download. Files arrive already named the way the
 mirror wants them.
 
 Or with curl, on any machine, which is the same exchange the bootstrap script
-performs. Sign in at the URL above, copy the value of the `myacinfo` cookie out
-of the browser's developer tools, and then per version:
+performs. It needs the `myacinfo` session cookie from a signed-in browser:
+
+1. Sign in at https://developer.apple.com/download/all/ .
+2. Open developer tools (Chrome: F12, or Cmd-Option-I on a Mac) and select the
+   **Application** tab. It may be hidden behind the `»` chevron at the end of
+   the tab bar. Firefox and Safari call the equivalent tab **Storage**.
+3. In the left sidebar, under **Storage**, expand **Cookies** and click
+   `https://developer.apple.com`.
+4. Type `myacinfo` in the filter box to cut the list down, then click that row.
+5. Copy the whole value out of the **Cookie Value** pane at the bottom. It is a
+   few hundred characters of opaque text. Take the value only: no `myacinfo=`
+   prefix and no trailing semicolon.
+
+The cookie is flagged `HttpOnly`, which you can see ticked in that same table,
+so `document.cookie` in the console will not show it. If you would rather not
+pick it out of the table at all, the Network tab is an alternative: right-click
+any `developer.apple.com` request, choose Copy → Copy as cURL, and the
+`Cookie:` header in what you paste contains `myacinfo=`.
+
+Then, per version:
 
 ```bash
 export ADC_COOKIE="myacinfo=<value>"
