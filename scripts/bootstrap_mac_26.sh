@@ -150,6 +150,18 @@ else
     ln -s "/usr/local/opt/$opensslpackage" /usr/local/opt/openssl || true
 fi
 
+# bash here rather than beside the Xcode work below, which moves
+# /Library/Developer/CommandLineTools aside. Without the CLT, brew declines to
+# build from source on any macOS that is not the current release: "Xcode alone
+# is not sufficient on <version>. Install the Command Line Tools". This host is
+# the current release, so the check does not even fire, but the same ordering
+# is what breaks bootstrap_mac_earlier_than_14.sh outright, and this host will
+# not be the current release for ever.
+brew install bash
+if [ ! -f /usr/local/bin/bash ]; then
+    ln -s /opt/homebrew/bin/bash /usr/local/bin/ || true
+fi
+
 expect_commands='
 set timeout -1
 spawn fastlane spaceauth
@@ -222,11 +234,6 @@ if [[ $(sw_vers -productVersion) =~ ^26 ]] ; then
     sudo xcodebuild -license accept
     sudo xcode-select -switch /Applications/Xcode-26.2.0.app/Contents/Developer
     sudo xcodebuild -license accept
-
-    brew install bash
-    if [ ! -f /usr/local/bin/bash ]; then
-        ln -s /opt/homebrew/bin/bash /usr/local/bin/
-    fi
 fi
 
 brew install ruby

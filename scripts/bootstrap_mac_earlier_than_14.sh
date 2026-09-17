@@ -217,10 +217,21 @@ if [[ "$(uname -p)" =~ "arm" ]]; then
     sudo mkdir -p /usr/local/bin
     sudo chown administrator:admin /usr/local/bin
 
-    ln -s /opt/homebrew/opt/openssl /usr/local/opt/openssl
+    ln -s /opt/homebrew/opt/openssl /usr/local/opt/openssl || true
 else
     opensslpackage=$(brew list | grep openssl | tail -n 1)
     ln -s /usr/local/opt/$opensslpackage /usr/local/opt/openssl || true
+fi
+
+# bash belongs here, not down beside the Xcode work where it used to be. macOS
+# ships bash 3.2 and /usr/local/bin/bash is expected to be a modern one, but
+# the Xcode section moves /Library/Developer/CommandLineTools aside, and once
+# that is gone brew will not build anything from source on Monterey: "Xcode
+# alone is not sufficient on Monterey. Install the Command Line Tools". On this
+# OS every formula is a source build, so that is every formula.
+brew install bash
+if [ ! -f /usr/local/bin/bash ]; then
+    ln -s /opt/homebrew/bin/bash /usr/local/bin/ || true
 fi
 
 # Xcode installation, from archives already sitting on this machine.
@@ -307,17 +318,17 @@ if [[ $(sw_vers -productVersion) =~ ^12 ]] || [[ $(sw_vers -productVersion) =~ ^
     pythonversion="3.9"
     brew install python
     if [[ "$(uname -p)" == "arm" ]]; then
-        ln -s /opt/homebrew/bin/python3 /usr/local/bin/python3
-        ln -s /usr/local/bin/python3 /usr/local/bin/python
+        ln -s /opt/homebrew/bin/python3 /usr/local/bin/python3 || true
+        ln -s /usr/local/bin/python3 /usr/local/bin/python || true
     else
-        ln -s /usr/local/bin/python${pythonversion} /usr/local/bin/python3
-        ln -s /usr/local/bin/python3 /usr/local/bin/python
+        ln -s /usr/local/bin/python${pythonversion} /usr/local/bin/python3 || true
+        ln -s /usr/local/bin/python3 /usr/local/bin/python || true
     fi
 
     if [[ "$(uname -p)" == "arm" ]]; then
-        ln -s /opt/homebrew/bin/g++-$gccversion /usr/local/bin/
-        ln -s /opt/homebrew/bin/gcc-$gccversion /usr/local/bin/
-        ln -s /opt/homebrew/bin/gcov-$gccversion /usr/local/bin/
+        ln -s /opt/homebrew/bin/g++-$gccversion /usr/local/bin/ || true
+        ln -s /opt/homebrew/bin/gcc-$gccversion /usr/local/bin/ || true
+        ln -s /opt/homebrew/bin/gcov-$gccversion /usr/local/bin/ || true
     fi
 
     # xcode-install and its fastlane authentication are no longer used.
@@ -349,11 +360,6 @@ if [[ $(sw_vers -productVersion) =~ ^12 ]] || [[ $(sw_vers -productVersion) =~ ^
     sudo xcodebuild -license accept
     sudo xcode-select -switch /Applications/Xcode-13.4.1.app/Contents/Developer
     sudo xcodebuild -license accept
-
-    brew install bash
-    if [ ! -f /usr/local/bin/bash ]; then
-        ln -s /opt/homebrew/bin/bash /usr/local/bin/
-    fi
 fi
 
 if [[ "$(sw_vers -productVersion)" =~ "10.15" ]] ; then
@@ -381,8 +387,6 @@ if [[ "$(sw_vers -productVersion)" =~ "10.15" ]] ; then
     sudo xcodebuild -license accept
     sudo xcode-select -switch /Applications/Xcode-12.3.app/Contents/Developer
     sudo xcodebuild -license accept
-
-    brew install bash
 fi
 
 if [[ "$(sw_vers -productVersion)" =~ "10.13" ]] ; then
@@ -412,9 +416,9 @@ if [[ "$(sw_vers -productVersion)" =~ "10.13" ]] ; then
 
     cd /Applications
     # may not be necessary:
-    ln -s Xcode-6.4.app Xcode-6.app
+    ln -s Xcode-6.4.app Xcode-6.app || true
     # one repo references this:
-    ln -s Xcode-8.app Xcode-8.0.app
+    ln -s Xcode-8.app Xcode-8.0.app || true
 
     sudo xcode-select -switch /Applications/Xcode-9.4.1.app/Contents/Developer
     sudo mv /Library/Developer/CommandLineTools /Library/Developer/CommandLineTools.bck
