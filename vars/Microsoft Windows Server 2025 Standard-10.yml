@@ -1,0 +1,6 @@
+---
+# Windows containers only run on a host of the same build, so Server 2025 needs
+# runner and clone images built from a matching ltsc2025 base. Older Windows
+# hosts have no file here and keep the values from defaults/main.yml.
+dronerunner_docker_image: "cppalliance/drone-runner-docker:windows-ltsc2025-amd64"
+dronerunner_clone_image: "cppalliance/git:windows-ltsc2025-amd64"

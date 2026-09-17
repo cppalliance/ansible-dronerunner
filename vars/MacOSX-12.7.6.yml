@@ -1,0 +1,18 @@
+---
+default_dronerunner_boost_packages:
+  - wget
+  - cmake
+  - lcov
+  - doxygen
+  - ccache
+  - pkg-config
+  - bash
+
+# valgrind "requires linux", and fails.
+
+default_dronerunner_xcode_versions: ""
+
+default_dronerunner_xcode_version_license: ""
+
+# Ansible adds label "test". Manually remove it on the target machine after validation.
+default_dronerunner_labels: "os:monterey,test:true"
