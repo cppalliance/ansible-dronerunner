@@ -221,9 +221,18 @@
 #     dest: /usr/local/bin
 #     remote_src: true
 
+# The release assets are named the way Go names architectures, which is not the
+# way the kernel does, and ansible_facts reports the kernel's. On apple silicon
+# the two agree, both being arm64, so this went unnoticed while every host here
+# was arm; on intel the fact reads x86_64 where the asset says amd64, and the
+# download 404s.
+- name: Determine the release architecture name
+  ansible.builtin.set_fact:
+    dronerunner_arch: "{{ 'amd64' if ansible_facts['architecture'] == 'x86_64' else ansible_facts['architecture'] }}"
+
 - name: Download dronerunner
   ansible.builtin.get_url:
-    url: https://github.com/drone-runners/drone-runner-exec/releases/latest/download/drone_runner_exec_darwin_{{ ansible_facts['architecture'] }}.tar.gz
+    url: https://github.com/drone-runners/drone-runner-exec/releases/latest/download/drone_runner_exec_darwin_{{ dronerunner_arch }}.tar.gz
     dest: /tmp
     mode: '0660'
   when:
@@ -231,7 +240,7 @@
 
 - name: Extract archive  # noqa command-instead-of-module
   ansible.builtin.shell: |
-    tar -xvf /tmp/drone_runner_exec_darwin_{{ ansible_facts['architecture'] }}.tar.gz
+    tar -xvf /tmp/drone_runner_exec_darwin_{{ dronerunner_arch }}.tar.gz
     mv drone-runner-exec /usr/local/bin/drone-runner-exec
   changed_when: true
   when:
