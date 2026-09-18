@@ -29,3 +29,21 @@
 
 - name: Reboot mac
   ansible.builtin.reboot:
+
+# Notified only, never run on its own, so an ordinary run does not turn pf back
+# on. If the rules and the daemon are both already in place and pf is off, that
+# is more likely somebody switching it off deliberately than a fault to repair.
+#
+# The daemon runs pfctl at load, so bootstrapping it is also what applies the
+# rules; there is no separate pfctl here. bootout first, or launchd ignores a
+# plist it considers already loaded. Both leading commands are allowed to fail:
+# neither the label nor the job need exist yet, and the task's result comes
+# from bootstrap.
+- name: Enable pf
+  ansible.builtin.shell: |
+    launchctl enable system/com.pf || true
+    launchctl bootout system /Library/LaunchDaemons/com.pf.plist || true
+    launchctl bootstrap system /Library/LaunchDaemons/com.pf.plist
+  args:
+    executable: /bin/bash
+  changed_when: true

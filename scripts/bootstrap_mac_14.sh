@@ -16,7 +16,9 @@ set -xe
 # Log into VNC. Set at least 16b resolution. Have a desktop session running.
 #
 # Enable ssh to have more permissions:
-# System Preferences -> Sharing , Remote Login, check the box Allow full disk access for remote users
+# System Settings -> General -> Sharing, the (i) next to Remote Login, check
+# the box Allow full disk access for remote users. On by default here. See
+# docs/FDA.md, which covers the older releases where it is not this simple.
 #
 # Set these variable before proceeding:
 : '

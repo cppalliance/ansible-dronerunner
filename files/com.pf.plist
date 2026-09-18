@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    macOS does not enable pf at boot. As the stock /etc/pf.conf puts it, "each
+    component which utilizes PF is responsible for enabling and disabling PF",
+    so without this the ruleset is simply not loaded after a reboot.
+
+    Named for what it does, not why it is here: it enables pf and loads the
+    whole of /etc/pf.conf. What this repo puts in that file is a block on the
+    Screen Sharing port, but that is incidental to the daemon.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.pf</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/sbin/pfctl</string>
+        <string>-e</string>
+        <string>-f</string>
+        <string>/etc/pf.conf</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>

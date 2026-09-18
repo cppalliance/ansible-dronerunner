@@ -14,7 +14,9 @@ set -xe
 # Log into VNC. Set at least 16b resolution. Have a desktop session running.
 #
 # Enable ssh to have more permissions:
-# System Preferences -> Sharing , Remote Login, check the box Allow full disk access for remote users
+# System Settings -> General -> Sharing, the (i) next to Remote Login, check
+# the box Allow full disk access for remote users. On by default here. See
+# docs/FDA.md, which covers the older releases where it is not this simple.
 # 
 # Pre-Ventura it was System Preferences > Sharing > Remote Login, checkbox visible directly.
 # Ventura and later moved it to System Settings > General > Sharing, and critically it's now only visible after clicking the small info button next to Remote Login.

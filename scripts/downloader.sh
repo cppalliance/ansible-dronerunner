@@ -33,6 +33,8 @@ export XCODES_PASSWORD=
 # The versions the macOS 12 and 13 hosts install. Keep in step with
 # bootstrap_mac_earlier_than_14.sh.
 xcodeversions="12.5 12.5.1 13.0 13.1 13.2 13.2.1 13.3 13.3.1 13.4 13.4.1 14.0 14.1"
+# 10.15
+xcodeversions="10 10.1 10.2 10.3 11 11.1 11.2 11.2.1 11.3 11.4 11.5 11.6 11.7 12 12.1 12.2 12.3 12.4"
 
 downloaddir="${XCODE_DOWNLOADS:-$HOME/xcode-downloads}"
 
@@ -98,4 +100,6 @@ Now copy these to the target host, into the directory that
 bootstrap_mac_earlier_than_14.sh reads:
 
     scp $downloaddir/*.xip administrator@<host>:/Applications/downloads/
+or from the target
+    scp -r administrator@<host>:/Users/administrator/xcode-downloads .
 "

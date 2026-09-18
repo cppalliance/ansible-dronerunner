@@ -68,6 +68,48 @@
     owner: administrator
     group: admin
 
+# Screen Sharing listens on TCP 5900 and nothing here uses it, these hosts
+# being driven over SSH, so the port is closed off.
+#
+# Only on macOS 14 and up. Below that the hosts run Murus, a pf front end
+# MacMiniVault installs, whose own ruleset in /etc/murus/ already restricts
+# 5900 to known addresses. Editing /etc/pf.conf there would achieve nothing:
+# Murus loads /etc/murus/pf.conf instead, and the stock file goes unread.
+#
+# The port is blocked rather than the service disabled, because the service is
+# what console access uses, and a pass on lo0 leaves it reachable through an
+# SSH tunnel.
+- name: Close off the screen sharing port with pf
+  when: ansible_facts['distribution_version'].split('.')[0] | int >= 14
+  block:
+    - name: Add the screen sharing rules to pf.conf
+      ansible.builtin.blockinfile:
+        path: /etc/pf.conf
+        # Appends, which is where these have to go: pf wants filter rules after
+        # the translation anchors that already occupy this file.
+        block: |
+          # Keep loopback working, so a deliberate SSH tunnel still functions.
+          pass in quick on lo0 proto tcp from any to any port 5900
+          # Drop everything else aimed at the Screen Sharing port.
+          block drop in quick proto tcp from any to any port 5900
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - no screen sharing"
+        owner: root
+        group: wheel
+        mode: "0644"
+        # -n parses without loading, so a bad edit fails the task rather than
+        # waiting for the next reboot to leave pf holding no rules at all.
+        validate: /sbin/pfctl -n -f %s
+      notify: Enable pf
+
+    - name: Install the pf launch daemon
+      ansible.builtin.copy:
+        src: com.pf.plist
+        dest: /Library/LaunchDaemons/com.pf.plist
+        owner: root
+        group: wheel
+        mode: "0644"
+      notify: Enable pf
+
 # "softwareupdate -i -a" installs everything Apple offers here, and that
 # includes the next major release, so the box upgrades itself to macOS 27.
 # There is no "minor updates only" flag: --recommended does not help, because

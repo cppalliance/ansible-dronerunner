@@ -11,8 +11,10 @@ set -xe
 #
 # Log into VNC. Set at least 16b resolution. Have a desktop session running.
 #
-# Enable ssh to have more permissions:
-# System Preferences -> Sharing , Remote Login, check the box Allow full disk access for remote users
+# Enable ssh to have more permissions. On these releases that is not the
+# checkbox under Remote Login, which does not exist before Ventura: add
+# /usr/libexec/sshd-keygen-wrapper to System Preferences -> Security & Privacy
+# -> Privacy -> Full Disk Access. See docs/FDA.md.
 #
 # Nothing is downloaded from Apple here. Run scripts/downloader.sh on a macOS
 # 26 host, which can still authenticate, and copy the archives over first:
@@ -104,14 +106,84 @@ fi
 
 # Install brew
 
+# Catalina needs brew pinned at both ends. Two separate walls, and the one
+# that announces itself is the lesser of them.
+#
+# The visible one: install.sh aborts on Intel, "Homebrew on macOS is only
+# supported on Apple Silicon processors!", a bare "uname -m" test added on
+# 2026-09-04 in Homebrew/install commit e078684. It offers no way round
+# itself, but the commit before it, pinned below, has no such test and its own
+# version floor stops at 10.11, so Catalina passes.
+#
+# The one that matters: brew declares its own floor, HOMEBREW_MACOS_OLDEST_ALLOWED
+# in Library/Homebrew/brew.sh, and 7.0 raised it from 10.15 to 11. Current brew
+# therefore refuses to start here no matter what installed it. 6.0.22 is the
+# last release with that floor still at 10.15, hence the pin. Nothing as old
+# as the 3.x that supported Catalina at the time is needed: 5.x and 6.x both
+# still allow it, and only warn that it is unsupported.
+#
+# Then there are the formulae. Current homebrew-core carries no catalina
+# bottles, so every formula would build from source with a 2019 toolchain.
+# Those bottles do exist for the versions that were current while Catalina was
+# supported, and the blobs stay on ghcr, so the core tap is pinned to
+# 2022-10-31. Verified at that commit: htop, wget, cmake, doxygen, ccache,
+# pkg-config, openssl@3, aria2, bash, git and python all have a catalina
+# bottle. (Not valgrind, which has no bottle on any macOS of that era and is
+# already tolerated below.)
+#
+# The whole tap is pinned rather than single formulae, unlike the gcc@12 case
+# further down, because dependencies have to come from the same era too: a
+# 2022 wget resolved against a 2026 openssl gets no bottle either. That in
+# turn needs HOMEBREW_NO_INSTALL_FROM_API, or brew reads formulae from its
+# JSON API and ignores the tap completely.
+brewversion="6.0.22"
+brewcorecommit="ed5bfd3f5931a74e4b5df84ece8bd17ad26da86c"
+brewinstallcommit="7a133dcc74051ee4efc79467ed215dfedf45aea2"
+
+catalina=no
+if [[ $(sw_vers -productVersion) =~ ^10\.15 ]]; then
+    catalina=yes
+    # Without the first of these, the next "brew install" updates brew to 7.x
+    # and everything after it stops working.
+    export HOMEBREW_NO_AUTO_UPDATE=1
+    export HOMEBREW_NO_INSTALL_FROM_API=1
+fi
+
 export PATH=/usr/local/bin:/opt/homebrew/bin:$PATH
 if command -v brew ; then
     echo "Brew already installed"
+elif [ "$catalina" = yes ]; then
+    echo "Install brew, pinned, for Catalina"
+    set +x
+    # The pinned installer is still worth using for the /usr/local directory
+    # and ownership work, which is the tedious part to reproduce. It clones
+    # brew at HEAD and then runs it, and that last step fails here because
+    # HEAD is 7.x; the clone is already on disk by then, so the failure is
+    # expected rather than fatal.
+    NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/${brewinstallcommit}/install.sh)" || true
+    set -x
+    if [ ! -x /usr/local/Homebrew/bin/brew ]; then
+        echo "The installer did not leave a brew clone at /usr/local/Homebrew ."
+        exit 1
+    fi
+    git -C /usr/local/Homebrew fetch --tags --force
+    git -C /usr/local/Homebrew checkout "$brewversion"
 else
     echo "Install brew"
     set +x
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
     set -x
+fi
+
+if [ "$catalina" = yes ]; then
+    brewcoretap="$(brew --repo)/Library/Taps/homebrew/homebrew-core"
+    if [ ! -d "$brewcoretap" ]; then
+        # --filter=blob:none fetches file contents on demand, so this is a few
+        # minutes and a few hundred MB rather than the whole multi-GB history,
+        # while still leaving a repository that can check out a 2022 commit.
+        git clone --filter=blob:none https://github.com/Homebrew/homebrew-core "$brewcoretap"
+    fi
+    git -C "$brewcoretap" checkout "$brewcorecommit"
 fi
 
 brew install htop
@@ -186,6 +258,12 @@ gcc12tap="cppalliance/pinned"
 
 if command -v gcc-12 ; then
     echo "gcc-12 already installed"
+elif [ "$catalina" = yes ]; then
+    # None of the above applies with the core tap pinned to 2022: gcc was
+    # itself 12 then, so this is plain gcc 12.2.0, with a catalina bottle and
+    # the gcc-12 binaries the symlinks want. There is no gcc@12 formula at
+    # that commit to pin, and no need for a tap of our own.
+    brew install gcc
 else
     brew tap-new --no-git "$gcc12tap" || true
     gcc12formula="$(brew --repo "$gcc12tap")/Formula/gcc@12.rb"
