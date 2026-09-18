@@ -182,6 +182,30 @@ else
 fi
 
 if [ "$catalina" = yes ]; then
+    # brew 6 dropped every macOS symbol older than catalina from
+    # MacOSVersion::SYMBOLS, and Library/Homebrew/on_system.rb derives two
+    # things from that one hash: which "on_<release>" methods get defined at
+    # all, and which names are accepted inside "on_system ... macos:". A 2022
+    # formula naming an older release is therefore unloadable. Both failures
+    # seen here come from it: "Invalid OS condition: :high_sierra", raised by
+    # texinfo while resolving gcc's dependencies, and the undefined
+    # "on_high_sierra" that broke ca-certificates' post_install below.
+    #
+    # Handing the four names back is smaller and more truthful than rewriting
+    # the formulae, and it keeps the authors' intent: on 10.15 a
+    # ":high_sierra_or_older" condition then correctly does nothing, where
+    # deleting the block would have been a guess about which way it went.
+    # Nothing consults these except version comparisons.
+    #
+    # Out here rather than beside the install above, because brew is already
+    # installed on a second run and the patch would be skipped exactly when it
+    # is still needed. The grep keeps it idempotent.
+    macosversionrb="$(brew --repo)/Library/Homebrew/macos_version.rb"
+    if ! grep -q high_sierra "$macosversionrb"; then
+        /usr/bin/perl -0pi -e 's/(\n(\s*)catalina:\s*"10\.15",)/$1\n$2mojave:      "10.14",\n$2high_sierra: "10.13",\n$2sierra:      "10.12",\n$2el_capitan:  "10.11",/' "$macosversionrb"
+        grep -q high_sierra "$macosversionrb"
+    fi
+
     brewcoretap="$(brew --repo)/Library/Taps/homebrew/homebrew-core"
     if [ ! -d "$brewcoretap" ]; then
         # --filter=blob:none fetches file contents on demand, so this is a few
@@ -191,22 +215,34 @@ if [ "$catalina" = yes ]; then
     fi
     git -C "$brewcoretap" checkout "$brewcorecommit"
 
-    # ca-certificates goes first and on its own, because its post_install step
-    # fails here and drags down the exit status of whatever pulled it in: brew
-    # pours every bottle, prints "Warning: The post-install step did not
+    # cxxstdlib_check was dropped from the formula DSL somewhere before brew 6,
+    # and a formula that calls it no longer loads at all: "undefined method
+    # 'cxxstdlib_check' for class Formulary::FormulaNamespace...". It only ever
+    # guarded compatibility when building from source, which nothing here does,
+    # so the line comes out. In this tap it is "cxxstdlib_check :skip" on a line
+    # of its own.
+    #
+    # Swept across the whole tap in one pass rather than per formula, so that
+    # adding a package later cannot resurrect this. Of the current list only
+    # gcc is affected. Idempotent, so re-running costs nothing.
+    grep -rl cxxstdlib_check "$brewcoretap/Formula" 2>/dev/null | while read -r formula; do
+        sed -i '' '/cxxstdlib_check/d' "$formula"
+    done
+
+    # ca-certificates goes first and on its own, because a failure in its
+    # post_install step drags down the exit status of whatever pulled it in:
+    # brew pours every bottle, prints "Warning: The post-install step did not
     # complete successfully", and still exits 1, which under "set -e" ends the
     # script halfway through an otherwise successful install.
     #
-    # Nothing to do with certificates. The 2022 formula calls on_high_sierra
-    # inside post_install, and brew 6 does not define it: MacOSVersion::SYMBOLS
-    # now stops at catalina, so the method is missing and the block raises.
-    # This is the one incompatibility the pinned tap has actually hit.
-    #
-    # What that step would have written is etc/ca-certificates/cert.pem, the
+    # The symbols patch above is what stops that happening, its post_install
+    # being one of the callers of on_high_sierra. This stays as the net,
+    # because what the step writes is etc/ca-certificates/cert.pem, the
     # keychain's trusted roots merged with Mozilla's bundle, and brew's openssl
-    # points its own cert.pem at it. Left missing, anything built against brew
-    # openssl cannot verify TLS at all. The Mozilla bundle on its own is
-    # sufficient, and is exactly what this same formula installs on Linux.
+    # points its own cert.pem at that. Left missing, nothing built against brew
+    # openssl can verify TLS at all, so it is worth not depending on a single
+    # patch holding. The Mozilla bundle alone is sufficient, and is exactly
+    # what this same formula installs on Linux.
     brew install ca-certificates || true
     cacertetc="$(brew --prefix)/etc/ca-certificates"
     if [ ! -f "$cacertetc/cert.pem" ]; then
