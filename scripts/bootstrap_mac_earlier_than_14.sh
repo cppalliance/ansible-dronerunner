@@ -149,6 +149,12 @@ if [[ $(sw_vers -productVersion) =~ ^10\.15 ]]; then
     export HOMEBREW_NO_INSTALL_FROM_API=1
 fi
 
+# Ask mode became the default for install, upgrade and reinstall in brew 6, so
+# brew prints its plan and then, whenever that plan pulls in dependencies,
+# waits for a y/n. It skips the prompt with no TTY, which is why Ansible runs
+# never saw it and running this by hand does.
+export HOMEBREW_NO_ASK=1
+
 export PATH=/usr/local/bin:/opt/homebrew/bin:$PATH
 if command -v brew ; then
     echo "Brew already installed"
@@ -184,6 +190,30 @@ if [ "$catalina" = yes ]; then
         git clone --filter=blob:none https://github.com/Homebrew/homebrew-core "$brewcoretap"
     fi
     git -C "$brewcoretap" checkout "$brewcorecommit"
+
+    # ca-certificates goes first and on its own, because its post_install step
+    # fails here and drags down the exit status of whatever pulled it in: brew
+    # pours every bottle, prints "Warning: The post-install step did not
+    # complete successfully", and still exits 1, which under "set -e" ends the
+    # script halfway through an otherwise successful install.
+    #
+    # Nothing to do with certificates. The 2022 formula calls on_high_sierra
+    # inside post_install, and brew 6 does not define it: MacOSVersion::SYMBOLS
+    # now stops at catalina, so the method is missing and the block raises.
+    # This is the one incompatibility the pinned tap has actually hit.
+    #
+    # What that step would have written is etc/ca-certificates/cert.pem, the
+    # keychain's trusted roots merged with Mozilla's bundle, and brew's openssl
+    # points its own cert.pem at it. Left missing, anything built against brew
+    # openssl cannot verify TLS at all. The Mozilla bundle on its own is
+    # sufficient, and is exactly what this same formula installs on Linux.
+    brew install ca-certificates || true
+    cacertetc="$(brew --prefix)/etc/ca-certificates"
+    if [ ! -f "$cacertetc/cert.pem" ]; then
+        mkdir -p "$cacertetc"
+        cp "$(brew --prefix ca-certificates)/share/ca-certificates/cacert.pem" \
+            "$cacertetc/cert.pem"
+    fi
 fi
 
 brew install htop
@@ -221,6 +251,20 @@ else
     sudo make -C "/tmp/lcovsrc/lcov-${lcovversion}" install PREFIX=/usr/local
 fi
 lcov --version
+
+# That install runs as root, so anything it had to create is left owned by
+# root, and where brew's prefix is /usr/local those are directories brew
+# expects to own. The next "brew install" carrying a man page then stops with
+# "The following directories are not writable by your user:
+# /usr/local/share/man/man5". man5 is the one that bites: man1 and man3 already
+# existed, created by brew, and lcovrc.5 is the first thing on these hosts to
+# want man5.
+#
+# Outside the check above rather than inside it, because by the second run lcov
+# is already installed and the repair would be skipped just when it is needed.
+if [ "$(brew --prefix)" = /usr/local ]; then
+    sudo chown -R administrator:admin /usr/local/share
+fi
 
 brew install valgrind || true
 brew install doxygen
