@@ -79,7 +79,7 @@ fi
 
 #####
 
-xcodearchives="${XCODE_DOWNLOADS:-/Applications/downloads}"
+xcodearchives="${XCODE_DOWNLOADS:-/Users/administrator/xcode-downloads}"
 
 if [ ! -d "$xcodearchives" ]; then
   echo "No Xcode archives at $xcodearchives .
@@ -522,6 +522,28 @@ fi
 
 if [[ "$(sw_vers -productVersion)" =~ "10.15" ]] ; then
     xcodeversions="10 10.1 10.2 10.3 11 11.1 11.2 11.2.1 11.3 11.4 11.5 11.6 11.7 12 12.1 12.2 12.3 12.4"
+
+    # python, which this branch has never had, and without it Ansible has no
+    # usable interpreter: discovery looks for /usr/local/bin/python3 first and
+    # then /usr/bin/python3, and on Catalina the latter is a stub that forwards
+    # to the CommandLineTools directory this branch moves aside below.
+    #
+    # 3.10 is what the pinned tap holds, python@3.10 being what the "python"
+    # alias pointed at in October 2022, and 3.10.8 is what the older hosts in
+    # this fleet are already running. Named explicitly rather than through the
+    # alias, the version being pinned regardless. Not keg-only at that commit,
+    # so brew links python3.10 into /usr/local/bin itself.
+    pythonversion="3.10"
+    brew install python@${pythonversion}
+    # No arm branch here, unlike 12 and 13 above: Catalina never ran on Apple
+    # silicon, so brew's prefix is always /usr/local.
+    ln -s /usr/local/bin/python${pythonversion} /usr/local/bin/python3 || true
+    ln -s /usr/local/bin/python3 /usr/local/bin/python || true
+
+    # Nor the gcc symlinks that branch makes, for the same reason: with brew's
+    # prefix at /usr/local, "brew install gcc" has already put gcc-12 exactly
+    # where they would have pointed.
+
     # sudo xcrun gem install xcode-install --no-document
     for xcodeversion in $xcodeversions; do
         if [ ! -d /Applications/Xcode-$xcodeversion.app ]; then
@@ -585,5 +607,36 @@ fi
 
 sudo xcrun gem install coveralls-lcov --no-document
 sudo xcrun gem install asciidoctor --no-document
+
+# asciidoctor-pdf's dependency graph has outgrown the ruby these hosts have.
+# "xcrun gem" means Apple's /usr/bin/ruby, which is 2.6 and stays there, while
+# current public_suffix declares ruby >= 3.2 and css_parser >= 3.3. Rubygems
+# will not resolve around that by itself: it stops and names one gem at a time,
+# which is a run per gem, so the whole set is pinned up front.
+#
+# Each is the newest release still declaring support for 2.6, taken from the
+# transitive closure of asciidoctor-pdf rather than found one failure at a
+# time. Order is leaves first and matters: "gem install css_parser" on its own
+# pulls addressable, then the latest public_suffix, and fails again.
+#
+# Four of these are strictly necessary, the ones reached through loose
+# constraints: css_parser (prawn-svg asks for "~> 1.6", so rubygems takes the
+# newest 1.x), public_suffix (via addressable's ">= 2.0.2, < 8.0"), and afm and
+# Ascii85 (via pdf-reader). asciidoctor-pdf already pins the others itself with
+# "prawn ~> 2.4.0", "prawn-svg ~> 0.34.0" and "ttfunk ~> 1.7.0", so naming them
+# changes nothing and records the combination known to work.
+#
+# Not gated on Catalina: every release this script covers runs the same system
+# ruby, so Monterey and Ventura need these too. (10.13 is worse still, shipping
+# ruby 2.3, below what several of these want.)
+sudo xcrun gem install public_suffix -v 5.1.1 --no-document
+sudo xcrun gem install css_parser -v 1.12.0 --no-document
+sudo xcrun gem install afm -v 0.2.2 --no-document
+sudo xcrun gem install Ascii85 -v 1.1.1 --no-document
+sudo xcrun gem install ttfunk -v 1.7.0 --no-document
+sudo xcrun gem install pdf-core -v 0.9.0 --no-document
+sudo xcrun gem install prawn -v 2.4.0 --no-document
+sudo xcrun gem install prawn-svg -v 0.34.2 --no-document
 sudo xcrun gem install asciidoctor-pdf --no-document
+
 sudo xcrun gem install coderay --no-document
