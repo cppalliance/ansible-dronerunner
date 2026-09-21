@@ -52,6 +52,28 @@ dronerunner_user_fullname: Drone
 # vault, to install system updates unattended. Leave empty to skip them.
 dronerunner_macos_update_user: ""
 dronerunner_macos_update_password: ""
+# Murus, the pf front end MacMiniVault installs on the macs below 14, keeps its
+# own ruleset under /etc/murus and loads /etc/murus/pf.conf in place of the
+# stock one, so the pf.conf edits made elsewhere in this role do not reach it.
+#
+# <Sam> is a pf table: a named list of addresses, declared in murus.tables as
+# "table <Sam> { ... } persist" and referred to in rules by the angle brackets.
+# Naming it here rather than in the rule below means the check for the table and
+# the rule that uses it cannot disagree.
+dronerunner_murus_table: Sam
+
+# Written to /etc/murus/murus.custom, which is the file to use: the Murus GUI
+# owns murus.inbound and rewrites it, and this one it leaves alone. Verbatim
+# pf syntax, so overriding it means writing pf rules.
+#
+# The ports are what has to reach these hosts from outside: the drone runner's
+# healthz/metrics on 3000, munin-node on 4949, NRPE on 5666 and node_exporter
+# on 9100. The runner's own connection to the drone server is outbound and
+# needs nothing here.
+dronerunner_murus_custom: |
+  # Monitoring: drone 3000, munin-node 4949, NRPE 5666, node_exporter 9100
+  pass in proto tcp from <{{ dronerunner_murus_table }}> to any port {3000, 4949, 5666, 9100} flags S/SA keep state
+
 swap_configure: true   # manage the swap or not
 swap_enable: true
 swap_file_path: /swapfile

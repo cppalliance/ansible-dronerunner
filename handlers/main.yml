@@ -47,3 +47,12 @@
   args:
     executable: /bin/bash
   changed_when: true
+
+# The whole Murus ruleset, not the one anchor. murus.custom reaches pf only
+# through /etc/murus/pf.conf, which both declares the anchor and fills it with
+# "load anchor 'murus.custom' from ...", and loading the anchor on its own
+# would leave its rules unable to see the tables declared in the parent. This
+# is the same reload the Murus GUI performs when rules are changed there.
+- name: Reload murus  # noqa command-instead-of-module
+  ansible.builtin.command: /sbin/pfctl -f /etc/murus/pf.conf
+  changed_when: true

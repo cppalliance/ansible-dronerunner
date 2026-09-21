@@ -110,6 +110,44 @@
         mode: "0644"
       notify: Enable pf
 
+# The other half of the same subject, for the hosts below 14 that the block
+# above skips: those run Murus, and monitoring has to be let back in through
+# it. Nothing here is keyed on the OS version, only on Murus being present,
+# since that is the thing that decides it.
+#
+# Two conditions rather than one, because a bare /etc/murus is not enough to
+# tell whether the firewall is the one set up for us: the rule is written in
+# terms of a table, and a rule referring to a table that was never declared
+# makes the whole ruleset fail to parse. So the table's declaration is what is
+# looked for.
+- name: Check for the murus tables
+  ansible.builtin.stat:
+    path: /etc/murus/murus.tables
+  register: dronerunner_murus_tables
+
+- name: Read the murus tables
+  ansible.builtin.slurp:
+    src: /etc/murus/murus.tables
+  register: dronerunner_murus_tables_read
+  when: dronerunner_murus_tables.stat.exists
+
+- name: Add the monitoring rules to murus.custom
+  ansible.builtin.blockinfile:
+    path: /etc/murus/murus.custom
+    block: "{{ dronerunner_murus_custom }}"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - monitoring"
+    owner: root
+    group: wheel
+    mode: "0644"
+    # No validate here, unlike the pf.conf task above. This file is a fragment
+    # loaded into an anchor, and "pfctl -n -f" on it alone fails on the table,
+    # which is declared in the parent ruleset. The handler's reload is what
+    # reports a bad rule.
+  when:
+    - dronerunner_murus_tables.stat.exists
+    - dronerunner_murus_tables_read.content | b64decode is search('table\s+<' ~ dronerunner_murus_table ~ '>')
+  notify: Reload murus
+
 # "softwareupdate -i -a" installs everything Apple offers here, and that
 # includes the next major release, so the box upgrades itself to macOS 27.
 # There is no "minor updates only" flag: --recommended does not help, because
