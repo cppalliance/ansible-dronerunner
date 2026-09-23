@@ -1,0 +1,3 @@
+{# Render nothing but the JSON; guarded by `dronerunner_docker_address_pools | length > 0` in tasks/linux.yml, which is where the explanation lives. An empty list would still be truthy in a `when` (it renders as "[]"), so the length test is the only reliable guard. #}{{ {
+  "default-address-pools": dronerunner_docker_address_pools
+} | to_nice_json }}

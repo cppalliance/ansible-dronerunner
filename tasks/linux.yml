@@ -52,6 +52,27 @@
     enabled: true
     name: docker
 
+# Docker's default bridge network holds only /16 with size /24 (256 addresses,
+# effectively 254 hosts), too small for a host running many parallel jobs; they
+# would fight for addresses. The address pool expands that, but a pool change
+# only affects networks created after the daemon restarts, so it is a deliberate
+# per-host opt-in via dronerunner_docker_address_pools rather than default.
+#
+# Guarded on length, not truthiness: an empty list renders as "[]", a non-empty
+# string, which would be truthy and write an empty pools file with no template
+# to speak of. See templates/daemon.json.j2.
+- name: Configure the docker address pool
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart docker
+  when:
+    - ansible_facts['os_family'] not in ['Darwin', 'Windows']
+    - dronerunner_docker_address_pools | length > 0
+
 # Root-only: startdronerunner.sh embeds DRONE_RPC_SECRET, so nothing under
 # /opt/drone should be readable by other users. The developers group runs the
 # scripts through sudo (see sudoers rules below), which works without read

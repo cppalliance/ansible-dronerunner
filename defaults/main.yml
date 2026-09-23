@@ -101,6 +101,20 @@ dronerunner_packages:
   - htop
   - locate
 
+# Docker daemon.json, only written to /etc/docker/daemon.json when this list is
+# non-empty. Each entry becomes one element of "default-address-pools". Empty
+# by default: no daemon.json is created and docker uses its compiled-in
+# defaults, so existing hosts are untouched until a pool is deliberately
+# declared. clang4 pins the pool below (the 10.201.0.0/16 range) because 15-30
+# parallel jobs need more than the default /24 bridge (254 addresses).
+#
+# When setting host_vars for a host, the variable will look like:
+# dronerunner_docker_address_pools:
+#   - { base: "10.201.0.0/16", size: 26 }
+#
+# See templates/daemon.json.j2 and docs/proxy.md.
+dronerunner_docker_address_pools: []
+
 dronerunner_hyperthreading_disable: true
 
 dronerunner_cleaner_exclude_list: "aabbcc|xxyyzz"
