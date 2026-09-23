@@ -101,5 +101,5 @@ bootstrap_mac_earlier_than_14.sh reads:
 
     scp $downloaddir/*.xip administrator@<host>:/Applications/downloads/
 or from the target
-    scp -r administrator@<host>:/Users/administrator/xcode-downloads .
+    scp -r administrator@<host>:/Users/administrator/xcode-downloads $HOME/
 "
