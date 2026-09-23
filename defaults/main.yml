@@ -74,6 +74,14 @@ dronerunner_murus_custom: |
   # Monitoring: drone 3000, munin-node 4949, NRPE 5666, node_exporter 9100
   pass in proto tcp from <{{ dronerunner_murus_table }}> to any port {3000, 4949, 5666, 9100} flags S/SA keep state
 
+# GitHub clone authentication through a host-local nginx reverse proxy. Opted
+# in per host by defining dronerunner_github_token in host_vars; absent, the
+# host clones anonymously as before. The proxy listens on the docker bridge
+# gateway (detected at runtime, overridable with dronerunner_githubproxy_gateway)
+# and forwards to github.com with the token added upstream, so the token never
+# enters a container or a CI log. See tasks/linux.yml and templates/gitproxy.conf.j2.
+dronerunner_githubproxy_port: 8080
+
 swap_configure: true   # manage the swap or not
 swap_enable: true
 swap_file_path: /swapfile

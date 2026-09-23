@@ -82,6 +82,90 @@
     mode: "0700"
   notify: Start runner
 
+# GitHub clone authentication via a host-local nginx reverse proxy.
+# ----------------------------------------------------------------
+# Defined only when the host opts in with dronerunner_github_token (in
+# host_vars), so every other host skips the whole block and keeps anonymous
+# cloning. The design: git-auth.env.j2 (below) redirects every
+# "https://github.com/" clone from pipeline containers to this nginx listener,
+# and nginx (gitproxy.conf.j2) forwards to github.com with a read-only token
+# added upstream. The token lives only in the nginx config on the host, never
+# in a container, an environment dump, or a CI log.
+
+# The proxy listens on the docker bridge gateway so containers reach it by IP
+# without DNS or /etc/hosts. That gateway is not assumed: the default-address-pools
+# daemon setting (elsewhere) can move it, so it is read from the live network.
+# Hosts may pin it explicitly with dronerunner_githubproxy_gateway.
+- name: Inspect the docker bridge network
+  ansible.builtin.command:
+    cmd: docker network inspect bridge
+  register: docker_bridge_inspect
+  changed_when: false
+  when: dronerunner_github_token is defined
+
+- name: Set the github proxy gateway
+  ansible.builtin.set_fact:
+    dronerunner_githubproxy_gateway: "{{ (docker_bridge_inspect.stdout | from_json)[0].IPAM.Config[0].Gateway }}"
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_githubproxy_gateway is not defined
+
+- name: Install nginx
+  ansible.builtin.package:
+    name: nginx
+    state: present
+  when: dronerunner_github_token is defined
+
+- name: Make sure nginx is enabled
+  ansible.builtin.systemd:
+    state: started
+    enabled: true
+    name: nginx
+  when: dronerunner_github_token is defined
+
+- name: Install the github proxy vhost
+  ansible.builtin.template:
+    src: gitproxy.conf.j2
+    dest: /etc/nginx/conf.d/gitproxy.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+  when: dronerunner_github_token is defined
+
+- name: Remove the github proxy vhost
+  ansible.builtin.file:
+    path: /etc/nginx/conf.d/gitproxy.conf
+    state: absent
+  notify: Reload nginx
+  when: dronerunner_github_token is not defined
+
+# Git auth environment file, merged into every pipeline step's environment via
+# DRONE_RUNNER_ENV_FILE. Only present when the host defines dronerunner_github_token
+# (in host_vars), so hosts without an intentional token are untouched.
+#
+# This file carries the url.*.insteadOf rewrite pointing at the proxy; it
+# carries no credential. GIT_CONFIG_PARAMETERS is used rather than
+# GIT_CONFIG_COUNT/KEY/VALUE because the former works on every git in the fleet
+# (the latter needs git >= 2.31, and droneubuntu2004 ships 2.29).
+- name: Install git auth environment file
+  ansible.builtin.template:
+    src: git-auth.env.j2
+    dest: "{{ dronerunner_env_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Start runner
+  when: dronerunner_github_token is defined
+
+- name: Remove git auth environment file
+  ansible.builtin.file:
+    path: /opt/drone/scripts/git-auth.env
+    state: absent
+  when: dronerunner_github_token is not defined or dronerunner_env_file != '/opt/drone/scripts/git-auth.env'
+  notify: Start runner
+
+
 - name: Install stopdronerunner.sh script
   ansible.builtin.template:
     src: stopdronerunner.sh

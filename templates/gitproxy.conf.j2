@@ -1,0 +1,39 @@
+# GitHub git reverse proxy for the drone runner on this host.
+# {{ ansible_managed }}
+#
+# Every "git clone https://github.com/..." from the runner's pipeline
+# containers is redirected here — git-auth.env.injected into each step carries
+# a url.*.insteadOf rewrite pointing at this listener — and forwarded to GitHub
+# with a read-only token added by nginx. The token exists only in this file, on
+# the host, root-readable; it never enters a container, an environment dump, or
+# a CI log. That is the advantage over injecting the token into the pipeline.
+#
+# Bound to the docker bridge gateway rather than 0.0.0.0, so only containers on
+# that bridge can reach it and the general internet cannot (which is not a
+# requirement, just a free tightening).
+server {
+    listen {{ dronerunner_githubproxy_gateway }}:{{ dronerunner_githubproxy_port }};
+    server_name _;
+
+    location / {
+        # No URI here: the path (e.g. /boostorg/boost.git) and the
+        # ?service=git-upload-pack query are preserved verbatim.
+        proxy_pass https://github.com;
+
+        # The rewritten request carries this host's bridge IP in the Host
+        # header; GitHub must see its own name or it will not route it.
+        proxy_set_header Host github.com;
+
+        # The whole point: turn anonymous clones into authenticated ones.
+        proxy_set_header Authorization "basic {{ ('x-access-token:' ~ dronerunner_github_token) | b64encode }}";
+
+        # SNI must name github.com, not the bridge IP, for github's edge to
+        # serve the right certificate and route.
+        proxy_ssl_server_name on;
+
+        # git smart-HTTP streams packfiles; buffering the response breaks the
+        # protocol. Generous read timeout for very large repositories.
+        proxy_buffering off;
+        proxy_read_timeout 300s;
+    }
+}

@@ -16,6 +16,9 @@ docker run -d \
 {% if dronerunner_environ %}
   -e DRONE_RUNNER_ENVIRON="{{ dronerunner_environ }}" \
 {% endif %}
+{% if dronerunner_env_file is defined %}
+  -e DRONE_RUNNER_ENV_FILE="{{ dronerunner_env_file }}" \
+{% endif %}
   -e DRONE_RUNNER_LABELS="{{ dronerunner_labels }}" \
   -p 3000:3000 \
   --restart unless-stopped \

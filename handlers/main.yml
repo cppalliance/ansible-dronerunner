@@ -56,3 +56,9 @@
 - name: Reload murus  # noqa command-instead-of-module
   ansible.builtin.command: /sbin/pfctl -f /etc/murus/pf.conf
   changed_when: true
+
+- name: Reload nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: reloaded
+
