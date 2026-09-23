@@ -90,6 +90,10 @@ swappiness: 1
 
 dronerunner_scripts_dir: "/opt/drone/scripts"
 dronerunner_scripts_dir_win: "C:\\opt\\drone\\scripts"
+# Written by the role (root:root 0600) and passed to the runner via
+# DRONE_RUNNER_ENV_FILE when dronerunner_github_token is defined. Contains the
+# "url.*.insteadOf" rewrite pointing at the proxy; no credential.
+dronerunner_env_file: "{{ dronerunner_scripts_dir }}/git-auth.env"
 dronerunner_packages_prereqs1: []
 dronerunner_packages:
   - docker.io

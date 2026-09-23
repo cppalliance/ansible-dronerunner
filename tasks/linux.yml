@@ -160,9 +160,9 @@
 
 - name: Remove git auth environment file
   ansible.builtin.file:
-    path: /opt/drone/scripts/git-auth.env
+    path: "{{ dronerunner_scripts_dir }}/git-auth.env"
     state: absent
-  when: dronerunner_github_token is not defined or dronerunner_env_file != '/opt/drone/scripts/git-auth.env'
+  when: dronerunner_github_token is not defined or dronerunner_env_file != (dronerunner_scripts_dir ~ '/git-auth.env')
   notify: Start runner
 
 
