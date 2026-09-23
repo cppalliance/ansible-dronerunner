@@ -17,6 +17,7 @@ docker run -d \
   -e DRONE_RUNNER_ENVIRON="{{ dronerunner_environ }}" \
 {% endif %}
 {% if dronerunner_github_token is defined %}
+  -v {{ dronerunner_env_file }}:{{ dronerunner_env_file }}:ro \
   -e DRONE_RUNNER_ENV_FILE="{{ dronerunner_env_file }}" \
 {% endif %}
   -e DRONE_RUNNER_LABELS="{{ dronerunner_labels }}" \
