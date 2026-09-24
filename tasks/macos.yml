@@ -68,85 +68,10 @@
     owner: administrator
     group: admin
 
-# Screen Sharing listens on TCP 5900 and nothing here uses it, these hosts
-# being driven over SSH, so the port is closed off.
-#
-# Only on macOS 14 and up. Below that the hosts run Murus, a pf front end
-# MacMiniVault installs, whose own ruleset in /etc/murus/ already restricts
-# 5900 to known addresses. Editing /etc/pf.conf there would achieve nothing:
-# Murus loads /etc/murus/pf.conf instead, and the stock file goes unread.
-#
-# The port is blocked rather than the service disabled, because the service is
-# what console access uses, and a pass on lo0 leaves it reachable through an
-# SSH tunnel.
-- name: Close off the screen sharing port with pf
-  when: ansible_facts['distribution_version'].split('.')[0] | int >= 14
-  block:
-    - name: Add the screen sharing rules to pf.conf
-      ansible.builtin.blockinfile:
-        path: /etc/pf.conf
-        # Appends, which is where these have to go: pf wants filter rules after
-        # the translation anchors that already occupy this file.
-        block: |
-          # Keep loopback working, so a deliberate SSH tunnel still functions.
-          pass in quick on lo0 proto tcp from any to any port 5900
-          # Drop everything else aimed at the Screen Sharing port.
-          block drop in quick proto tcp from any to any port 5900
-        marker: "# {mark} ANSIBLE MANAGED BLOCK - no screen sharing"
-        owner: root
-        group: wheel
-        mode: "0644"
-        # -n parses without loading, so a bad edit fails the task rather than
-        # waiting for the next reboot to leave pf holding no rules at all.
-        validate: /sbin/pfctl -n -f %s
-      notify: Enable pf
-
-    - name: Install the pf launch daemon
-      ansible.builtin.copy:
-        src: com.pf.plist
-        dest: /Library/LaunchDaemons/com.pf.plist
-        owner: root
-        group: wheel
-        mode: "0644"
-      notify: Enable pf
-
-# The other half of the same subject, for the hosts below 14 that the block
-# above skips: those run Murus, and monitoring has to be let back in through
-# it. Nothing here is keyed on the OS version, only on Murus being present,
-# since that is the thing that decides it.
-#
-# Two conditions rather than one, because a bare /etc/murus is not enough to
-# tell whether the firewall is the one set up for us: the rule is written in
-# terms of a table, and a rule referring to a table that was never declared
-# makes the whole ruleset fail to parse. So the table's declaration is what is
-# looked for.
-- name: Check for the murus tables
-  ansible.builtin.stat:
-    path: /etc/murus/murus.tables
-  register: dronerunner_murus_tables
-
-- name: Read the murus tables
-  ansible.builtin.slurp:
-    src: /etc/murus/murus.tables
-  register: dronerunner_murus_tables_read
-  when: dronerunner_murus_tables.stat.exists
-
-- name: Add the monitoring rules to murus.custom
-  ansible.builtin.blockinfile:
-    path: /etc/murus/murus.custom
-    block: "{{ dronerunner_murus_custom }}"
-    marker: "# {mark} ANSIBLE MANAGED BLOCK - monitoring"
-    owner: root
-    group: wheel
-    mode: "0644"
-    # No validate here, unlike the pf.conf task above. This file is a fragment
-    # loaded into an anchor, and "pfctl -n -f" on it alone fails on the table,
-    # which is declared in the parent ruleset. The handler's reload is what
-    # reports a bad rule.
-  when:
-    - dronerunner_murus_tables.stat.exists
-    - dronerunner_murus_tables_read.content | b64decode is search('table\s+<' ~ dronerunner_murus_table ~ '>')
-  notify: Reload murus
+# Kept in a file of its own so playbooks/firewalls.yml can apply it to macs
+# that are not drone runners.
+- name: Include the macos firewall tasks
+  ansible.builtin.include_tasks: macos_firewall.yml
 
 # "softwareupdate -i -a" installs everything Apple offers here, and that
 # includes the next major release, so the box upgrades itself to macOS 27.

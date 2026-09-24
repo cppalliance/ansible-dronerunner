@@ -1,0 +1,46 @@
+---
+# Applies only the macOS firewall tasks of the role (tasks/macos_firewall.yml),
+# for macs that are not drone runners. Drone runners already get these through
+# tasks/macos.yml and need nothing from here.
+#
+# What it does, decided per host by the tasks themselves:
+#   - macOS 14 and up: blocks the Screen Sharing port (5900) in /etc/pf.conf
+#     and installs /Library/LaunchDaemons/com.pf.plist to load pf at boot.
+#   - Macs running Murus (/etc/murus/murus.tables declaring the table below):
+#     adds the monitoring rules to /etc/murus/murus.custom.
+#
+# Variables that may be relevant (defaults in defaults/main.yml):
+#   dronerunner_murus_table   pf table of addresses allowed in (default: Sam).
+#   dronerunner_murus_custom  the pf rules written to murus.custom. The default
+#                             opens the drone runner's port 3000 alongside
+#                             munin-node 4949, NRPE 5666 and node_exporter 9100;
+#                             on a mac without a drone runner you may want to
+#                             override it without 3000.
+#
+# Only defaults/main.yml applies here. The variable section at the top of
+# tasks/main.yml (include_vars of vars/*.yml, the macos_version fact, and the
+# default_* copies) is not run, because this calls tasks_from directly. Nothing
+# the firewall tasks read comes from there today, so it makes no difference,
+# but a firewall variable added to vars/MacOSX-*.yml or as a default_* value
+# would be silently ignored by this playbook. Put firewall variables in
+# defaults/main.yml.
+#
+# If that ever becomes limiting, the fix: move that variable section out of
+# tasks/main.yml into tasks/parse_variables.yml, include it from main.yml, and
+# add an include_role with tasks_from: parse_variables.yml before the one
+# below. Facts set by include_vars and set_fact belong to the host, so they
+# carry over to the firewall tasks.
+#
+# Example:
+#   ansible-playbook playbooks/firewalls.yml -l somemac
+
+- name: Configure the macos firewall
+  hosts: newservers:!windows
+  remote_user: ubuntu
+  become: true
+  tasks:
+    - name: Include the macos firewall tasks
+      ansible.builtin.include_role:
+        name: sdarwin.dronerunner
+        tasks_from: macos_firewall.yml
+      when: ansible_facts['system'] == 'Darwin'
