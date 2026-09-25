@@ -74,13 +74,89 @@ dronerunner_murus_custom: |
   # Monitoring: drone 3000, munin-node 4949, NRPE 5666, node_exporter 9100
   pass in proto tcp from <{{ dronerunner_murus_table }}> to any port {3000, 4949, 5666, 9100} flags S/SA keep state
 
-# GitHub clone authentication through a host-local nginx reverse proxy. Opted
-# in per host by defining dronerunner_github_token in host_vars; absent, the
-# host clones anonymously as before. The proxy listens on the docker bridge
-# gateway (detected at runtime, overridable with dronerunner_githubproxy_gateway)
-# and forwards to github.com with the token added upstream, so the token never
-# enters a container or a CI log. See tasks/linux.yml and templates/gitproxy.conf.j2.
+# GitHub clone access for pipeline containers. Linux only; the mac, windows and
+# freebsd task files ignore all of it. Opted in per host by defining
+# dronerunner_github_token in host_vars; absent, the host clones anonymously as
+# before and every task in the block is skipped.
+#
+# Two implementations, chosen with dronerunner_github_mode:
+#
+#   proxy   nginx forwards each clone straight to github.com with the token
+#           added upstream. Fixes authentication, so the host leaves the
+#           anonymous rate limit behind, but github still builds and sends a
+#           full packfile for every clone.
+#   mirror  nginx forwards to git-cache-proxy, which keeps a bare mirror per
+#           repo, runs "git fetch --prune" before serving, and builds the
+#           packfile locally. Fixes volume as well: a burst of identical clones
+#           collapses into one upstream fetch, and only new objects are
+#           transferred. The token moves from nginx into the mirror daemon.
+#   false   neither. Nothing is installed, and a vhost, service or environment
+#           file left by a previous mode is removed.
+#
+# Both modes listen on the same address, so git-auth.env is byte-identical
+# either way: switching modes changes only this host and needs no change inside
+# any container. Falling back is a one word edit here or in host_vars.
+dronerunner_github_mode: proxy
+
+# The front door for both modes, on the docker bridge gateway (detected at
+# runtime, overridable with dronerunner_githubproxy_gateway).
 dronerunner_githubproxy_port: 8080
+
+# Mirror mode only. The daemon publishes on loopback and nginx fronts it, so
+# this port is never reachable from a container or off the host.
+dronerunner_githubmirror_port: 8081
+
+# The daemon runs as an ordinary systemd service, not a container: one fewer
+# entry in "docker ps" to mistake for a job, and it can drop privileges, which
+# the published image cannot (it has no USER and runs as root).
+#
+# Upstream publishes no release binaries, so the role builds from source. The
+# version is pinned deliberately: upstream calls itself early single-maintainer
+# software and says to pin. Build and rebuild are both keyed on the installed
+# binary reporting this exact version, so a normal run does nothing; bumping
+# this line is what triggers a rebuild.
+dronerunner_githubmirror_version: 0.1.13
+dronerunner_githubmirror_repo: https://github.com/rolandjitsu/git-cache-proxy
+dronerunner_githubmirror_bin: /usr/local/bin/git-cache-proxy
+dronerunner_githubmirror_src_dir: /usr/local/src/git-cache-proxy
+
+# The rust toolchain used for that build. Distro packages are not an option:
+# the crate is edition 2024, which needs rustc 1.85 or newer, and no ubuntu or
+# debian release ships one. So rustup, into a system-wide location rather than
+# root's home, and used only at build time — the service itself needs nothing
+# but the resulting binary and git.
+dronerunner_githubmirror_rustup_home: /usr/local/rustup
+dronerunner_githubmirror_cargo_home: /usr/local/cargo
+
+# Debian and ubuntu names, which is the whole fleet today. A C toolchain is
+# needed despite this being rust, because the TLS stack is rustls over ring and
+# ring compiles its own assembly; there is no openssl in the tree, so no
+# libssl-dev. Override on a non-debian host: the RedHat equivalent of
+# build-essential is the "Development Tools" group or just gcc plus make.
+dronerunner_githubmirror_build_packages:
+  - build-essential
+  - ca-certificates
+  - curl
+  - git
+
+# Unprivileged service account. It owns the cache and nothing else; the binary
+# stays root-owned so the daemon cannot rewrite itself. Deliberately modest:
+# no login shell, but no seccomp gymnastics either.
+dronerunner_githubmirror_user: gitcache
+
+# Bare mirrors, one directory per repo, owned by the service account. Hundreds
+# of boostorg repos plus the boost superproject land here, so put it on a
+# filesystem with room.
+dronerunner_githubmirror_cache_dir: /var/cache/git-cache-proxy
+# The daemon defaults to 0, meaning unlimited and no accounting. Capped here so
+# the cache cannot fill the disk; least recently used idle mirrors are evicted
+# and transparently re-cloned when next asked for.
+dronerunner_githubmirror_cache_max_mb: 51200
+# Skip the upstream fetch when the mirror was refreshed this recently. This is
+# the freshness dial: 0 revalidates against github on every single clone, and
+# anything higher collapses a burst. 10 is the daemon's own default and is well
+# under the gap between a push and the build that follows it.
+dronerunner_githubmirror_fetch_ttl_seconds: 10
 
 swap_configure: true   # manage the swap or not
 swap_enable: true
@@ -92,8 +168,13 @@ dronerunner_scripts_dir: "/opt/drone/scripts"
 dronerunner_scripts_dir_win: "C:\\opt\\drone\\scripts"
 # Written by the role (root:root 0600) and passed to the runner via
 # DRONE_RUNNER_ENV_FILE when dronerunner_github_token is defined. Contains the
-# "url.*.insteadOf" rewrite pointing at the proxy; no credential.
+# "url.*.insteadOf" rewrite pointing at the front door; no credential, and the
+# same contents in either github mode.
 dronerunner_env_file: "{{ dronerunner_scripts_dir }}/git-auth.env"
+# Mirror mode only, and this one does hold the credential (root:root 0600). It
+# is a docker --env-file, read by the git-cache-proxy unit, which is why the
+# token reaches the daemon through the environment rather than its argv.
+dronerunner_githubmirror_env_file: "{{ dronerunner_scripts_dir }}/gitmirror.env"
 dronerunner_packages_prereqs1: []
 dronerunner_packages:
   - docker.io

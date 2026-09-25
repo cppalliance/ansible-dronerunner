@@ -103,47 +103,63 @@
     mode: "0700"
   notify: Start runner
 
-# GitHub clone authentication via a host-local nginx reverse proxy.
-# ----------------------------------------------------------------
-# Defined only when the host opts in with dronerunner_github_token (in
-# host_vars), so every other host skips the whole block and keeps anonymous
-# cloning. The design: git-auth.env.j2 (below) redirects every
-# "https://github.com/" clone from pipeline containers to this nginx listener,
-# and nginx (gitproxy.conf.j2) forwards to github.com with a read-only token
-# added upstream. The token lives only in the nginx config on the host, never
-# in a container, an environment dump, or a CI log.
+# GitHub clone access for pipeline containers.
+# --------------------------------------------
+# Skipped entirely unless the host opts in with dronerunner_github_token (in
+# host_vars), so every other host keeps cloning anonymously. What gets
+# installed then depends on dronerunner_github_mode; see defaults/main.yml for
+# what "proxy", "mirror" and "false" mean.
+#
+# Common to both modes: git-auth.env.j2 (below) rewrites every
+# "https://github.com/" clone in every pipeline step to the nginx listener on
+# the docker bridge. nginx then either forwards to github.com with the token
+# added (proxy) or to the local caching mirror (mirror). Either way the token
+# stays on the host and never enters a container, an environment dump or a log,
+# and the rewrite is the same, so a mode change needs nothing inside the
+# containers and does not restart the runner.
+#
+# The tasks that tear down the mode that is *not* selected are what make
+# switching back a one word edit rather than a cleanup job.
 
-# The proxy listens on the docker bridge gateway so containers reach it by IP
+# The listener sits on the docker bridge gateway so containers reach it by IP
 # without DNS or /etc/hosts. That gateway is not assumed: the default-address-pools
-# daemon setting (elsewhere) can move it, so it is read from the live network.
+# daemon setting (above) can move it, so it is read from the live network.
 # Hosts may pin it explicitly with dronerunner_githubproxy_gateway.
 - name: Inspect the docker bridge network
   ansible.builtin.command:
     cmd: docker network inspect bridge
   register: docker_bridge_inspect
   changed_when: false
-  when: dronerunner_github_token is defined
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode in ['proxy', 'mirror']
 
 - name: Set the github proxy gateway
   ansible.builtin.set_fact:
     dronerunner_githubproxy_gateway: "{{ (docker_bridge_inspect.stdout | from_json)[0].IPAM.Config[0].Gateway }}"
   when:
     - dronerunner_github_token is defined
+    - dronerunner_github_mode in ['proxy', 'mirror']
     - dronerunner_githubproxy_gateway is not defined
 
 - name: Install nginx
   ansible.builtin.package:
     name: nginx
     state: present
-  when: dronerunner_github_token is defined
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode in ['proxy', 'mirror']
 
 - name: Make sure nginx is enabled
   ansible.builtin.systemd:
     state: started
     enabled: true
     name: nginx
-  when: dronerunner_github_token is defined
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode in ['proxy', 'mirror']
 
+# Mode "proxy": nginx straight to github.com, token in the vhost.
 - name: Install the github proxy vhost
   ansible.builtin.template:
     src: gitproxy.conf.j2
@@ -152,20 +168,264 @@
     group: root
     mode: "0644"
   notify: Reload nginx
-  when: dronerunner_github_token is defined
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode == 'proxy'
 
 - name: Remove the github proxy vhost
   ansible.builtin.file:
     path: /etc/nginx/conf.d/gitproxy.conf
     state: absent
   notify: Reload nginx
-  when: dronerunner_github_token is not defined
+  when: dronerunner_github_token is not defined or dronerunner_github_mode != 'proxy'
+
+# Mode "mirror": nginx to git-cache-proxy on loopback, token in the daemon.
+# Ordered so the daemon is listening before the vhost that points at it.
+#
+# The daemon is built from source and run as an ordinary unprivileged service.
+# Upstream ships no release binaries, and distro rust is too old (the crate is
+# edition 2024, needing rustc >= 1.85), so the build needs rustup. That is a
+# one-time cost: every task below is gated on the installed binary already
+# reporting dronerunner_githubmirror_version, so a steady-state run skips the
+# whole build and only a version bump re-triggers it.
+- name: Check the installed github mirror version
+  ansible.builtin.command: "{{ dronerunner_githubmirror_bin }} --version"
+  register: dronerunner_githubmirror_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode == 'mirror'
+
+# One fact so the eight build tasks below share a single condition rather than
+# repeating the rc/stdout test. True when the binary is missing, unrunnable, or
+# is some other version.
+- name: Decide whether the github mirror needs building
+  ansible.builtin.set_fact:
+    dronerunner_githubmirror_build: >-
+      {{ dronerunner_githubmirror_installed.rc | default(1) != 0
+         or dronerunner_githubmirror_version
+            not in (dronerunner_githubmirror_installed.stdout | default('')) }}
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode == 'mirror'
+
+# A C toolchain is needed despite this being rust: the TLS stack is rustls over
+# ring, and ring compiles its own assembly. No libssl-dev, though — there is no
+# openssl anywhere in the dependency tree.
+- name: Install the github mirror build dependencies
+  ansible.builtin.package:
+    name: "{{ dronerunner_githubmirror_build_packages }}"
+    state: present
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode == 'mirror'
+    - dronerunner_githubmirror_build | bool
+
+- name: Install the rust toolchain for the github mirror build
+  ansible.builtin.shell:
+    cmd: >-
+      set -o pipefail &&
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs
+      | sh -s -- -y --no-modify-path --profile minimal
+    creates: "{{ dronerunner_githubmirror_cargo_home }}/bin/cargo"
+    executable: /bin/bash
+  environment:
+    RUSTUP_HOME: "{{ dronerunner_githubmirror_rustup_home }}"
+    CARGO_HOME: "{{ dronerunner_githubmirror_cargo_home }}"
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode == 'mirror'
+    - dronerunner_githubmirror_build | bool
+
+# rustup only installs a toolchain on first run; on a rebuild after a version
+# bump the existing one may predate the new crate's requirement.
+- name: Update the rust toolchain for the github mirror build
+  ansible.builtin.command: "{{ dronerunner_githubmirror_cargo_home }}/bin/rustup update stable"
+  environment:
+    RUSTUP_HOME: "{{ dronerunner_githubmirror_rustup_home }}"
+    CARGO_HOME: "{{ dronerunner_githubmirror_cargo_home }}"
+  changed_when: false
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode == 'mirror'
+    - dronerunner_githubmirror_build | bool
+
+- name: Fetch the github mirror source
+  ansible.builtin.git:
+    repo: "{{ dronerunner_githubmirror_repo }}"
+    dest: "{{ dronerunner_githubmirror_src_dir }}"
+    version: "v{{ dronerunner_githubmirror_version }}"
+    depth: 1
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode == 'mirror'
+    - dronerunner_githubmirror_build | bool
+
+# --locked builds exactly the dependency versions upstream committed in
+# Cargo.lock, so the binary this produces is reproducible rather than whatever
+# the registry happens to offer today.
+- name: Build the github mirror
+  ansible.builtin.command:
+    cmd: "{{ dronerunner_githubmirror_cargo_home }}/bin/cargo build --release --locked --bin git-cache-proxy"
+    chdir: "{{ dronerunner_githubmirror_src_dir }}"
+    creates: "{{ dronerunner_githubmirror_src_dir }}/target/release/git-cache-proxy"
+  environment:
+    RUSTUP_HOME: "{{ dronerunner_githubmirror_rustup_home }}"
+    CARGO_HOME: "{{ dronerunner_githubmirror_cargo_home }}"
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode == 'mirror'
+    - dronerunner_githubmirror_build | bool
+
+# Copied out of the build tree rather than symlinked, so the running daemon
+# keeps working if the source directory is ever cleaned. root-owned: the
+# service account must not be able to rewrite its own binary.
+- name: Install the github mirror binary
+  ansible.builtin.copy:
+    src: "{{ dronerunner_githubmirror_src_dir }}/target/release/git-cache-proxy"
+    dest: "{{ dronerunner_githubmirror_bin }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart git mirror
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode == 'mirror'
+    - dronerunner_githubmirror_build | bool
+
+- name: Create the github mirror service account
+  ansible.builtin.user:
+    name: "{{ dronerunner_githubmirror_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ dronerunner_githubmirror_cache_dir }}"
+    create_home: false
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode == 'mirror'
+
+# Owned by the service account, which is the only thing that writes here. Not
+# recursed: a populated cache is hundreds of repos and millions of files, and
+# ansible would stat every one of them on every run. That matters only when
+# migrating a cache built by some other uid, which is what the note in
+# docs/proxy.md covers.
+- name: Create the github mirror cache directory
+  ansible.builtin.file:
+    path: "{{ dronerunner_githubmirror_cache_dir }}"
+    state: directory
+    owner: "{{ dronerunner_githubmirror_user }}"
+    group: "{{ dronerunner_githubmirror_user }}"
+    mode: "0750"
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode == 'mirror'
+
+- name: Install the github mirror environment file
+  ansible.builtin.template:
+    src: gitmirror.env.j2
+    dest: "{{ dronerunner_githubmirror_env_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart git mirror
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode == 'mirror'
+
+- name: Install the github mirror service
+  ansible.builtin.template:
+    src: git-cache-proxy.service.j2
+    dest: /etc/systemd/system/git-cache-proxy.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart git mirror
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode == 'mirror'
+
+- name: Make sure the github mirror is enabled
+  ansible.builtin.systemd:
+    name: git-cache-proxy
+    state: started
+    enabled: true
+    daemon_reload: true
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode == 'mirror'
+
+- name: Install the github mirror vhost
+  ansible.builtin.template:
+    src: gitmirror.conf.j2
+    dest: /etc/nginx/conf.d/gitmirror.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode == 'mirror'
+
+# Teardown for mode "mirror" when it is not selected. The service has to be
+# stopped before its unit file goes, and stopping it can only be attempted if
+# the unit is actually there, hence the stat.
+- name: Remove the github mirror vhost
+  ansible.builtin.file:
+    path: /etc/nginx/conf.d/gitmirror.conf
+    state: absent
+  notify: Reload nginx
+  when: dronerunner_github_token is not defined or dronerunner_github_mode != 'mirror'
+
+- name: Check for the github mirror service
+  ansible.builtin.stat:
+    path: /etc/systemd/system/git-cache-proxy.service
+  register: dronerunner_githubmirror_unit
+  when: dronerunner_github_token is not defined or dronerunner_github_mode != 'mirror'
+
+- name: Stop the github mirror
+  ansible.builtin.systemd:
+    name: git-cache-proxy
+    state: stopped
+    enabled: false
+  when:
+    - dronerunner_github_token is not defined or dronerunner_github_mode != 'mirror'
+    - dronerunner_githubmirror_unit.stat is defined
+    - dronerunner_githubmirror_unit.stat.exists | default(false)
+
+- name: Remove the github mirror service
+  ansible.builtin.file:
+    path: /etc/systemd/system/git-cache-proxy.service
+    state: absent
+  register: dronerunner_githubmirror_unit_removed
+  when: dronerunner_github_token is not defined or dronerunner_github_mode != 'mirror'
+
+# Only the things that make the mirror *run* are removed. The cache directory,
+# the binary and the service account are deliberately left behind: re-cloning
+# hundreds of mirrors and rebuilding from source are both expensive, an idle
+# binary and a nologin account cost nothing, and keeping them means falling
+# back to proxy is reversible in seconds rather than minutes. The credential is
+# not in that category, so it goes.
+- name: Remove the github mirror environment file
+  ansible.builtin.file:
+    path: "{{ dronerunner_githubmirror_env_file }}"
+    state: absent
+  when: dronerunner_github_token is not defined or dronerunner_github_mode != 'mirror'
+
+- name: Reload systemd after removing the github mirror service  # noqa no-handler
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: dronerunner_githubmirror_unit_removed is changed
 
 # Git auth environment file, merged into every pipeline step's environment via
-# DRONE_RUNNER_ENV_FILE. Only present when the host defines dronerunner_github_token
-# (in host_vars), so hosts without an intentional token are untouched.
+# DRONE_RUNNER_ENV_FILE. Shared by both modes and identical in each, because
+# both put the same listener at the same address; that is what lets a mode
+# change stay on the host. Only present when the host has a token and a mode,
+# so hosts without an intentional opt-in are untouched.
 #
-# This file carries the url.*.insteadOf rewrite pointing at the proxy; it
+# This file carries the url.*.insteadOf rewrite pointing at the front door; it
 # carries no credential. GIT_CONFIG_PARAMETERS is used rather than
 # GIT_CONFIG_COUNT/KEY/VALUE because the former works on every git in the fleet
 # (the latter needs git >= 2.31, and droneubuntu2004 ships 2.29).
@@ -177,13 +437,18 @@
     group: root
     mode: "0600"
   notify: Start runner
-  when: dronerunner_github_token is defined
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode in ['proxy', 'mirror']
 
 - name: Remove git auth environment file
   ansible.builtin.file:
     path: "{{ dronerunner_scripts_dir }}/git-auth.env"
     state: absent
-  when: dronerunner_github_token is not defined or dronerunner_env_file != (dronerunner_scripts_dir ~ '/git-auth.env')
+  when: >-
+    dronerunner_github_token is not defined
+    or dronerunner_github_mode not in ['proxy', 'mirror']
+    or dronerunner_env_file != (dronerunner_scripts_dir ~ '/git-auth.env')
   notify: Start runner
 
 

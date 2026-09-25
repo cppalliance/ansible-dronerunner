@@ -16,7 +16,7 @@ docker run -d \
 {% if dronerunner_environ %}
   -e DRONE_RUNNER_ENVIRON="{{ dronerunner_environ }}" \
 {% endif %}
-{% if dronerunner_github_token is defined %}
+{% if dronerunner_github_token is defined and dronerunner_github_mode in ['proxy', 'mirror'] %}
   -v {{ dronerunner_env_file }}:{{ dronerunner_env_file }}:ro \
   -e DRONE_RUNNER_ENV_FILE="{{ dronerunner_env_file }}" \
 {% endif %}

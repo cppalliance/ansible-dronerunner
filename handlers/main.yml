@@ -67,3 +67,13 @@
     name: docker
     state: restarted
 
+# Restart rather than reload: the daemon has no reload signal, and the token it
+# holds arrives through the environment at exec time. daemon_reload is here
+# because an edited unit file is the usual reason this fires; it also covers a
+# freshly rebuilt binary, which only takes effect on a new process.
+- name: Restart git mirror
+  ansible.builtin.systemd:
+    name: git-cache-proxy
+    state: restarted
+    daemon_reload: true
+

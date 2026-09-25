@@ -1,0 +1,66 @@
+# {{ ansible_managed }}
+#
+# git-cache-proxy, the "mirror" implementation of dronerunner_github_mode. It
+# keeps a bare mirror of every github repo a pipeline asks for, runs
+# "git fetch --prune" before serving, and generates the packfile from the local
+# mirror. A burst of identical clones therefore costs github one incremental
+# fetch rather than N packfiles.
+#
+# A force-push upstream needs no special handling: "clone --mirror" configures
+# the refspec "+refs/*:refs/*", and the leading + accepts a non-fast-forward
+# update, so the mirror simply follows. --prune covers deleted branches.
+
+[Unit]
+Description=git-cache-proxy: caching github mirror for the drone runner
+Documentation={{ dronerunner_githubmirror_repo }}
+# No docker dependency: this is an ordinary process. It only needs the network
+# up to reach github on the first clone of each repo.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# exec rather than simple so "systemctl start" reports a binary that cannot be
+# executed as a start failure instead of succeeding into a crash loop. Needs
+# systemd 240 (late 2018); drop to simple on anything older.
+Type=exec
+User={{ dronerunner_githubmirror_user }}
+Group={{ dronerunner_githubmirror_user }}
+Restart=always
+RestartSec=5s
+
+# The credential, kept out of argv (and so out of "ps") by arriving through the
+# environment. systemd reads this file as root before dropping to User=, so it
+# stays root-owned 0600 and is never readable by the service account itself.
+EnvironmentFile={{ dronerunner_githubmirror_env_file }}
+# The daemon shells out to git, which wants a HOME to look for ~/.gitconfig.
+# Point it at the cache so there is always a writable one; repository config is
+# passed per-invocation via GIT_CONFIG_COUNT regardless.
+Environment=HOME={{ dronerunner_githubmirror_cache_dir }}
+
+# Bound to loopback. The daemon has no per-repo authorization: it serves
+# anything its upstream credential can read to anyone who can reach the port,
+# so nginx is the only thing allowed to.
+ExecStart={{ dronerunner_githubmirror_bin }} \
+    --bind 127.0.0.1:{{ dronerunner_githubmirror_port }} \
+    --upstream https://github.com \
+    --cache-root {{ dronerunner_githubmirror_cache_dir }} \
+    --fetch-ttl-seconds {{ dronerunner_githubmirror_fetch_ttl_seconds }} \
+    --cache-max-mb {{ dronerunner_githubmirror_cache_max_mb }}
+
+# Modest hardening. The cache is the only path it may write, and it never needs
+# privilege, a new user, or an executable mapping. Enough to make a compromise
+# of a read-only git cache boring, without the audit burden of a full lockdown.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ReadWritePaths={{ dronerunner_githubmirror_cache_dir }}
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# Mirroring the boost superproject forks git and index-pack on large packs.
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

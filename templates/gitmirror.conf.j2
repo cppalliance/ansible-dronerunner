@@ -1,0 +1,46 @@
+# GitHub git caching mirror for the drone runner on this host.
+# {{ ansible_managed }}
+#
+# The "mirror" half of dronerunner_github_mode; gitproxy.conf.j2 is the other.
+# Same listener address as that one, so the rewrite inside the containers does
+# not change between modes, but this forwards to git-cache-proxy on loopback
+# instead of to github.com. The mirror holds the token and talks to github
+# itself, which is why no Authorization header is set here.
+#
+# Bound to the docker bridge gateway rather than 0.0.0.0, so only containers on
+# that bridge can reach it and the general internet cannot.
+server {
+    listen {{ dronerunner_githubproxy_gateway }}:{{ dronerunner_githubproxy_port }};
+    server_name _;
+
+    # The negotiation body is a POST of unpredictable size and the packfile
+    # reply can be gigabytes. Neither is capped here; the mirror applies its own
+    # bound with --max-decoded-body-mb.
+    client_max_body_size 0;
+
+    location / {
+        # No URI: the path and the ?service=git-upload-pack query reach the
+        # mirror verbatim, which is how it resolves which repo to serve.
+        proxy_pass http://127.0.0.1:{{ dronerunner_githubmirror_port }};
+
+        # 1.0 is the proxy_pass default and cannot stream a chunked body, which
+        # both halves of a clone rely on.
+        proxy_http_version 1.1;
+
+        # Nothing is added to the request. In particular the client's
+        # "Git-Protocol: version=2" header is passed through untouched: without
+        # it the mirror would serve the v0 advertisement and every clone would
+        # drag the full ref list along with it.
+        proxy_set_header Host $host;
+
+        # git smart-HTTP streams in both directions; buffering either side
+        # breaks the protocol on large repositories.
+        proxy_buffering off;
+        proxy_request_buffering off;
+
+        # A cold mirror clones the repo from github before it can answer, and
+        # for the boost superproject that is not quick.
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+    }
+}
