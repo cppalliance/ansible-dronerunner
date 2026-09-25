@@ -69,8 +69,8 @@ Three pieces cooperate:
 
 1. **`templates/git-auth.env.j2`** — written to
    `/opt/drone/scripts/git-auth.env` and passed to the runner as
-   `DRONE_RUNNER_ENV_FILE`, so it merges into every pipeline step's environment
-   (run by `git` in the container) *and* the built-in clone step's environment:
+   `DRONE_RUNNER_ENV_FILE`, so it merges into every pipeline step's
+   environment, which is where `.drone/drone.sh` runs its burst of clones:
 
    ```
    GIT_CONFIG_PARAMETERS="'url.http://10.201.0.1:8080/.insteadOf=https://github.com/'"
@@ -80,6 +80,16 @@ Three pieces cooperate:
    `GIT_CONFIG_COUNT/KEY/VALUE` because the former works on every git in the
    fleet, including git 2.29 in `droneubuntu2004:1`; the latter needs git 2.31.
    No credential appears here — the container only learns the proxy's address.
+
+   **This does not reach Drone's built-in clone step.** Observed in job logs:
+   the clone step reports `From https://github.com/...` while steps inside the
+   pipeline report `From http://10.201.0.1:8080/...`, and git prints the URL
+   *after* `insteadOf` rewriting, so the clone step is plainly not being
+   rewritten. That one clone per job therefore still goes to github.com
+   anonymously, in both modes. It is a small share of the traffic — the burst
+   that caused the original throttling is the submodule clones inside
+   `drone.sh`, which are covered — but it is not zero, and the gap predates
+   mirror mode rather than being caused by it.
 
 2. **`templates/gitproxy.conf.j2`** — the nginx `server` block, listening only
    on the docker bridge gateway address. It rewrites `Host` back to
