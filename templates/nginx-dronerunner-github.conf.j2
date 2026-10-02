@@ -1,0 +1,37 @@
+# {{ ansible_managed }}
+#
+# Boot ordering for the github clone listener, in both "proxy" and "mirror"
+# mode. The vhost binds the docker bridge gateway ({{ dronerunner_githubproxy_gateway }})
+# rather than a wildcard, so that only containers on the bridge can reach it
+# and the internet cannot. The cost of that choice is a dependency: the address
+# does not exist until dockerd has created docker0, and nothing in the stock
+# nginx unit knows about docker. Lose the race at boot and nginx dies with
+#
+#   nginx: [emerg] bind() to {{ dronerunner_githubproxy_gateway }}:{{ dronerunner_githubproxy_port }} failed
+#          (99: Cannot assign requested address)
+#
+# which is silent until a pipeline fails: every clone gets "Connection refused"
+# from the rewrite in git-auth.env, and it stays broken until someone restarts
+# nginx by hand.
+#
+# Widening the listen to *:{{ dronerunner_githubproxy_port }} would also fix the bind, and is the wrong
+# fix: the daemon behind it applies the github token to everything it forwards
+# and has no per-client authorization, so a wildcard bind on a public host
+# offers an authenticated clone proxy to the internet.
+
+[Unit]
+Wants=docker.service
+After=docker.service
+# Bounded on purpose: twelve tries five seconds apart is far more than a boot
+# race needs, and still gives up eventually, so a genuinely broken vhost fails
+# loudly in "systemctl status" instead of retrying for ever in the background.
+StartLimitIntervalSec=120
+StartLimitBurst=12
+
+[Service]
+# Ordering gets nginx started after dockerd reports ready, which is when
+# docker0 exists. Retrying as well costs nothing and covers the gap between
+# "dockerd is ready" and "the bridge is addressable", plus a docker restart
+# that briefly takes the address away.
+Restart=on-failure
+RestartSec=5s

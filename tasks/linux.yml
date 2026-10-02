@@ -150,6 +150,48 @@
     - dronerunner_github_token is defined
     - dronerunner_github_mode in ['proxy', 'mirror']
 
+# Installed before nginx is started, so a host being set up for the first time
+# gets the ordering on its first boot rather than its second. See the template
+# for why the listener cannot simply bind a wildcard instead.
+- name: Create the nginx service drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/nginx.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode in ['proxy', 'mirror']
+
+- name: Install the nginx docker ordering drop-in
+  ansible.builtin.template:
+    src: nginx-dronerunner-github.conf.j2
+    dest: /etc/systemd/system/nginx.service.d/dronerunner-github.conf
+    owner: root
+    group: root
+    mode: "0644"
+  register: dronerunner_nginx_dropin
+  when:
+    - dronerunner_github_token is defined
+    - dronerunner_github_mode in ['proxy', 'mirror']
+
+- name: Remove the nginx docker ordering drop-in
+  ansible.builtin.file:
+    path: /etc/systemd/system/nginx.service.d/dronerunner-github.conf
+    state: absent
+  register: dronerunner_nginx_dropin_removed
+  when: dronerunner_github_token is not defined or
+        dronerunner_github_mode not in ['proxy', 'mirror']
+
+# A drop-in only takes effect after a reload, and this is ordering rather than
+# runtime config, so reload is enough; nginx itself is not restarted.
+- name: Reload systemd after changing the nginx drop-in  # noqa no-handler
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: dronerunner_nginx_dropin is changed or
+        dronerunner_nginx_dropin_removed is changed
+
 - name: Make sure nginx is enabled
   ansible.builtin.systemd:
     state: started

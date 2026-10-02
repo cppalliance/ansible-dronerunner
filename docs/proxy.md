@@ -81,15 +81,19 @@ Three pieces cooperate:
    fleet, including git 2.29 in `droneubuntu2004:1`; the latter needs git 2.31.
    No credential appears here — the container only learns the proxy's address.
 
-   **This does not reach Drone's built-in clone step.** Observed in job logs:
-   the clone step reports `From https://github.com/...` while steps inside the
-   pipeline report `From http://10.201.0.1:8080/...`, and git prints the URL
-   *after* `insteadOf` rewriting, so the clone step is plainly not being
-   rewritten. That one clone per job therefore still goes to github.com
-   anonymously, in both modes. It is a small share of the traffic — the burst
-   that caused the original throttling is the submodule clones inside
-   `drone.sh`, which are covered — but it is not zero, and the gap predates
-   mirror mode rather than being caused by it.
+   This reaches Drone's built-in clone step as well as the pipeline steps, so
+   no pipeline change and no custom clone image are needed. In
+   `drone-runner-docker`, `DRONE_RUNNER_ENV_FILE` is read by `godotenv` and
+   merged into `Runner.Environ`, which becomes the compiler's static environ
+   provider; the clone step is then assigned those globals with
+   `step.Envs = environ.Combine(envs, step.Envs)` — the same map the pipeline
+   steps get, and nothing masks them out.
+
+   To check it on a given host, read the first `From` line of the clone step's
+   log. Git prints the URL *after* `insteadOf` rewriting, so
+   `From http://10.201.0.1:8080/...` means the clone step is covered and
+   `From https://github.com/...` means it is not. Confirmed covered on clang4,
+   including `refs/pull/N/head` on pull request builds.
 
 2. **`templates/gitproxy.conf.j2`** — the nginx `server` block, listening only
    on the docker bridge gateway address. It rewrites `Host` back to
@@ -283,6 +287,35 @@ it.
 Upstream describes itself as early, single-maintainer software, which is why
 `dronerunner_githubmirror_version` pins a tag, and why `proxy` is kept as a
 working fallback rather than deleted.
+
+## Boot ordering
+
+Shared by both modes, and worth knowing because the symptom points at the
+wrong component. The vhost binds the docker bridge gateway rather than a
+wildcard, which means nginx cannot start until dockerd has created `docker0`.
+Nothing in the stock nginx unit knows that, so at boot nginx can lose the race:
+
+```
+nginx: [emerg] bind() to 10.201.0.1:8080 failed (99: Cannot assign requested address)
+nginx: configuration file /etc/nginx/nginx.conf test failed
+```
+
+nginx then stays down, and every pipeline clone fails with
+`Failed to connect to 10.201.0.1 port 8080 ... Connection refused` — which
+reads like a mirror fault but is nginx never having started. Nothing recovers
+it automatically until someone restarts nginx, so it can persist across days of
+failed builds.
+
+`templates/nginx-dronerunner-github.conf.j2` fixes it with a drop-in at
+`/etc/systemd/system/nginx.service.d/dronerunner-github.conf`, adding
+`After=docker.service` plus a bounded `Restart=on-failure`. The retry also
+covers a `Restart docker` handler briefly taking the address away.
+
+Widening the listener to `*:8080` fixes the bind too, and is the wrong fix: in
+mirror mode the daemon behind nginx applies the github token to everything it
+forwards and performs no per-client authorization, so a wildcard bind on a
+public host publishes an authenticated clone proxy to the internet. The narrow
+bind is a security control, not an accident.
 
 ## Manual test (no drone, no runner)
 
