@@ -3,6 +3,7 @@
 
 # manually run this:
 if (-not (Get-Command choco -ErrorAction SilentlyContinue)) { iex ((new-object net.webclient).DownloadString('https://chocolatey.org/install.ps1')) }
+refreshenv
 choco install -y notepadplusplus
 
 # create bootstrap1.ps1:
