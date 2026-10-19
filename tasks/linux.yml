@@ -58,10 +58,16 @@
 # only affects networks created after the daemon restarts, so it is a deliberate
 # per-host opt-in via dronerunner_docker_address_pools rather than default.
 #
+# The same file carries data-root, for hosts whose docker storage lives on a
+# second disk (dronerunner_docker_data_root, e.g. /disk2/docker). The template
+# replaces daemon.json whole, so a host with its own data-root has to have it
+# set here: otherwise the restart points docker back at /var/lib/docker, and
+# every container and image appears to vanish, though they are still on disk.
+#
 # Guarded on length, not truthiness: an empty list renders as "[]", a non-empty
 # string, which would be truthy and write an empty pools file with no template
 # to speak of. See templates/daemon.json.j2.
-- name: Configure the docker address pool
+- name: Configure the docker daemon
   ansible.builtin.template:
     src: daemon.json.j2
     dest: /etc/docker/daemon.json
@@ -71,7 +77,7 @@
   notify: Restart docker
   when:
     - ansible_facts['os_family'] not in ['Darwin', 'Windows']
-    - dronerunner_docker_address_pools | length > 0
+    - (dronerunner_docker_address_pools | length > 0) or (dronerunner_docker_data_root | default('') | length > 0)
 
 # Root-only: startdronerunner.sh embeds DRONE_RPC_SECRET, so nothing under
 # /opt/drone should be readable by other users. The developers group runs the

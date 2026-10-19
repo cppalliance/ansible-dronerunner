@@ -204,6 +204,12 @@ dronerunner_packages:
 # See templates/daemon.json.j2 and docs/proxy.md.
 dronerunner_docker_address_pools: []
 
+# Where docker keeps its containers and images ("data-root" in daemon.json),
+# for a host whose storage is on a second disk, e.g. "/disk2/docker". Set it in
+# host_vars. Empty or undefined leaves docker at its default, /var/lib/docker.
+# See templates/daemon.json.j2.
+# dronerunner_docker_data_root: ""
+
 dronerunner_hyperthreading_disable: true
 
 dronerunner_cleaner_exclude_list: "aabbcc|xxyyzz"

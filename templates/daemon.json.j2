@@ -1,3 +1,9 @@
-{# Render nothing but the JSON; guarded by `dronerunner_docker_address_pools | length > 0` in tasks/linux.yml, which is where the explanation lives. An empty list would still be truthy in a `when` (it renders as "[]"), so the length test is the only reliable guard. #}{{ {
-  "default-address-pools": dronerunner_docker_address_pools
-} | to_nice_json }}
+{# Render nothing but the JSON; guarded in tasks/linux.yml, which is where the explanation lives. Each key appears only when its variable is set: an absent or empty dronerunner_docker_data_root leaves docker at its default /var/lib/docker, and an empty address pool list adds no pools. #}
+{%- set daemon = {} -%}
+{%- if dronerunner_docker_data_root | default('') | length > 0 -%}
+{%-   set _ = daemon.update({"data-root": dronerunner_docker_data_root}) -%}
+{%- endif -%}
+{%- if dronerunner_docker_address_pools | length > 0 -%}
+{%-   set _ = daemon.update({"default-address-pools": dronerunner_docker_address_pools}) -%}
+{%- endif -%}
+{{ daemon | to_nice_json }}
