@@ -61,3 +61,7 @@
 - name: Include freebsd client
   ansible.builtin.include_tasks: freebsd.yml
   when: ansible_facts['system'] == 'FreeBSD'
+
+- name: Include munin runner count
+  ansible.builtin.include_tasks: munin.yml
+  when: ansible_facts['system'] in ['Linux', 'Darwin', 'FreeBSD']

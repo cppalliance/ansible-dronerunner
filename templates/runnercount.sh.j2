@@ -1,0 +1,39 @@
+#!/bin/sh
+# Counts the drone jobs running on this host, for the munin plugin
+# {{ dronerunner_munin_plugin_dir }}/runnercount. Run once a minute from root's crontab.
+
+mkdir -p "$(dirname {{ dronerunner_munin_data_file }})"
+tmpfile="{{ dronerunner_munin_data_file }}.tmp"
+
+{% if ansible_facts['system'] == 'Linux' %}
+# The runner itself is the container named "runner"; every pipeline step it
+# starts gets a generated name beginning "drone-". Counting by name rather than
+# grepping the whole line keeps the step images (cppalliance/droneubuntu2404 and
+# so on) and the runner image out of it, so nothing needs subtracting. Service
+# containers count too, so a job with services shows as more than one.
+count=$(/usr/bin/docker ps --format '{% raw %}{{.Names}}{% endraw %}' 2>/dev/null | grep -c '^drone-')
+{% else %}
+# drone-runner-exec runs each step as a direct child process, so its children
+# are the steps in progress. Matching on the name alone would also count every
+# compiler and test binary that happens to sit under /tmp/drone-*, and the
+# runner itself, which is why the children are counted instead.
+#
+# The runner is found by its full command line: "drone-runner-exec" is longer
+# than the process name the kernel keeps (15 characters on linux, 16 on mac),
+# so pgrep -x never matches it. Anchoring at the start leaves out the su and
+# sh -c wrappers the freebsd rc script starts it through.
+count=0
+for pid in $(pgrep -f '^/usr/local/bin/drone-runner-exec '); do
+    children=$(pgrep -P "$pid" | wc -l)
+    count=$((count + children))
+done
+{% endif %}
+
+# wc on BSD pads with spaces; arithmetic expansion strips them.
+count=$((count + 0))
+[ "$count" -lt 0 ] && count=0
+
+# Written aside and moved into place so munin never reads a half-written file.
+echo "$count" > "$tmpfile"
+chmod 0644 "$tmpfile"
+mv "$tmpfile" {{ dronerunner_munin_data_file }}

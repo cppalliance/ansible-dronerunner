@@ -1,0 +1,45 @@
+#!/bin/sh
+# -*- sh -*-
+
+: << =cut
+
+=head1 NAME
+
+runnercount - Plugin to measure the number of drone jobs running on this host.
+
+=head1 NOTES
+
+This plugin reads {{ dronerunner_munin_data_file }} once per interval. It is
+written once a minute by {{ dronerunner_munin_script }}, run from root's crontab.
+
+=head1 LICENSE
+
+Boost Version 1
+
+=head1 MAGIC MARKERS
+
+ #%# family=manual
+
+=cut
+
+datafile="{{ dronerunner_munin_data_file }}"
+
+if [ "$1" = "config" ]; then
+        echo "graph_title Drone runners"
+        echo "graph_order count"
+        echo 'graph_args --base 1000 --lower-limit 0'
+        echo 'graph_scale no'
+        echo 'graph_vlabel Number'
+        echo 'graph_category drone'
+        echo 'count.label runners'
+        echo 'count.draw AREA'
+        echo 'count.min 0'
+        echo "count.info Number of drone jobs (docker: step containers, exec: step processes) running"
+        exit 0
+fi
+
+if [ -r "$datafile" ]; then
+        echo "count.value $(cat "$datafile")"
+else
+        echo "count.value U"
+fi

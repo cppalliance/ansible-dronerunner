@@ -29,6 +29,14 @@ dronerunner_stop_timeout: 10800
 # runner scripts and apt/apt-get with sudo. Linux only.
 dronerunner_developers_group: developers
 
+# Munin graph of the number of drone jobs running (tasks/munin.yml). Linux, mac
+# and freebsd; windows has no cron or munin-node here. The script and its output
+# stay out of /opt/drone, which is root-only, because munin-node runs plugins as
+# an unprivileged user that has to read the output.
+dronerunner_munin_plugin_dir: "{{ '/usr/local/etc/munin/plugins' if ansible_facts['system'] == 'FreeBSD' else '/etc/munin/plugins' }}"
+dronerunner_munin_script: /opt/munin/runnercount.sh
+dronerunner_munin_data_file: /opt/munin/runnercount.txt
+
 
 # Hyper-V isolated containers (Windows). Override in group_vars,
 # for example dronerunner_drone_runner_hyperv_images: "cppalliance/dronevs2015"

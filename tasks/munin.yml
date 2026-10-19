@@ -1,0 +1,35 @@
+---
+# A munin graph of the drone jobs running at any moment. Root's cron runs
+# runnercount.sh once a minute, which writes a single number to a file, and the
+# munin plugin reports whatever that file holds. munin-node itself is installed
+# outside this role; restart it once to pick up a newly added plugin.
+
+- name: Create munin directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ dronerunner_munin_plugin_dir }}"
+    - "{{ dronerunner_munin_data_file | dirname }}"
+
+- name: Install runnercount.sh script
+  ansible.builtin.template:
+    src: runnercount.sh.j2
+    dest: "{{ dronerunner_munin_script }}"
+    mode: "0755"
+
+- name: Install runnercount munin plugin
+  ansible.builtin.template:
+    src: munin-runnercount.j2
+    dest: "{{ dronerunner_munin_plugin_dir }}/runnercount"
+    mode: "0755"
+
+- name: Cron job to run runnercount.sh
+  ansible.builtin.cron:
+    name: Runnercount
+    minute: "*"
+    hour: "*"
+    day: "*"
+    job: "{{ dronerunner_munin_script }} > /dev/null 2>&1"
+    user: root
