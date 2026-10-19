@@ -5,3 +5,5 @@
 # in seconds. Restart later with startdronerunner.sh (or docker start runner).
 
 docker stop -t {{ dronerunner_stop_timeout }} runner
+docker rm runner
+
