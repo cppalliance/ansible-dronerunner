@@ -1,5 +1,7 @@
 #!/bin/bash
-  
+
+echo "Starting the runner"
+
 docker run -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -e DRONE_RPC_PROTO="{{ dronerunner_drone_rpc_proto }}" \
