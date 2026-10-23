@@ -518,6 +518,8 @@ if [[ $(sw_vers -productVersion) =~ ^12 ]] || [[ $(sw_vers -productVersion) =~ ^
     sudo xcodebuild -license accept
     sudo xcode-select -switch /Applications/Xcode-13.4.1.app/Contents/Developer
     sudo xcodebuild -license accept
+    sudo xcode-select -switch /Applications/Xcode-14.0.app/Contents/Developer
+    sudo xcodebuild -license accept
 fi
 
 if [[ "$(sw_vers -productVersion)" =~ "10.15" ]] ; then
