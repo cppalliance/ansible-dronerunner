@@ -402,11 +402,42 @@ fi
 #
 # Installing is little more than expanding the archive: an Xcode.app is
 # self-contained and code-signed, and nothing registers it with the system.
-# What xcodes does beyond this, and what is still done per-machine further
-# down, is accept the license. It would also run "DevToolsSecurity -enable",
-# add staff to the _developer group, and run "xcodebuild -runFirstLaunch" to
-# install the bundled components, except that these hosts have always passed
-# --no-superuser and skipped all three.
+# What is still done per-machine further down is accept the license and
+# install each Xcode's bundled components (xcode_install_components below).
+#
+# The components step is not optional. "xcversion install", which these hosts
+# used before, ran it for every Xcode it installed. It puts
+# CoreSimulator.framework, MobileDevice and friends in /Library/Developer and
+# /Library/Apple, and without them Xcode 14's xcodebuild aborts while loading
+# its IDESimulatorAvailability plug-in. Since /usr/bin/git and the other shims
+# go through "xcodebuild -find", a job with DEVELOPER_DIR on that Xcode then
+# dies at its first git command: "xcode-select: Failed to locate 'git'".
+
+xcode_install_components() {
+    # The same as xcversion's install_components: -runFirstLaunch from Xcode 9
+    # on, the bundled packages directly before that. Run in ascending order,
+    # so the newest Xcode leaves the newest components in place; the system
+    # components are backwards compatible, not the other way round.
+    local version="$1" app="/Applications/Xcode-$1.app"
+    if [ "${version%%.*}" -ge 9 ]; then
+        sudo "$app/Contents/Developer/usr/bin/xcodebuild" -runFirstLaunch
+    else
+        for pkg in "$app"/Contents/Resources/Packages/*.pkg; do
+            [ -e "$pkg" ] && sudo installer -pkg "$pkg" -target /
+        done
+    fi
+}
+
+# manual check
+# for app in /Applications/Xcode-*.app; do
+#  printf '%-40s ' "$app"
+#  DEVELOPER_DIR="$app/Contents/Developer" xcrun -find git >/dev/null 2>&1 && echo ok || echo FAIL
+# done
+#
+# manual fix
+# sudo /Applications/Xcode-14.1.app/Contents/Developer/usr/bin/xcodebuild -runFirstLaunch
+# ls /Library/Developer/PrivateFrameworks/CoreSimulator.framework
+# DEVELOPER_DIR=/Applications/Xcode-14.0.app/Contents/Developer xcrun -find git
 
 xcode_normalize_version() {
     # 12.5 -> 12.5.0, because that is how xcodes names what it downloads.
@@ -520,6 +551,10 @@ if [[ $(sw_vers -productVersion) =~ ^12 ]] || [[ $(sw_vers -productVersion) =~ ^
     sudo xcodebuild -license accept
     sudo xcode-select -switch /Applications/Xcode-14.0.app/Contents/Developer
     sudo xcodebuild -license accept
+
+    for xcodeversion in $xcodeversions; do
+        xcode_install_components $xcodeversion
+    done
 fi
 
 if [[ "$(sw_vers -productVersion)" =~ "10.15" ]] ; then
@@ -569,6 +604,10 @@ if [[ "$(sw_vers -productVersion)" =~ "10.15" ]] ; then
     sudo xcodebuild -license accept
     sudo xcode-select -switch /Applications/Xcode-12.3.app/Contents/Developer
     sudo xcodebuild -license accept
+
+    for xcodeversion in $xcodeversions; do
+        xcode_install_components $xcodeversion
+    done
 fi
 
 if [[ "$(sw_vers -productVersion)" =~ "10.13" ]] ; then
@@ -605,6 +644,10 @@ if [[ "$(sw_vers -productVersion)" =~ "10.13" ]] ; then
     sudo xcode-select -switch /Applications/Xcode-9.4.1.app/Contents/Developer
     sudo mv /Library/Developer/CommandLineTools /Library/Developer/CommandLineTools.bck
     sudo xcodebuild -license accept
+
+    for xcodeversion in $xcodeversions; do
+        xcode_install_components $xcodeversion
+    done
 fi
 
 sudo xcrun gem install coveralls-lcov --no-document
